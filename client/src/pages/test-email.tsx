@@ -30,7 +30,10 @@ export default function TestEmailPage() {
     try {
       const response = await apiRequest("POST", "/api/test-email", { to: email });
       
-      if (response.success) {
+      // Parse the response to get the success status
+      const result = response as any;
+      
+      if (result && result.success) {
         setSuccess(true);
         toast({
           title: "Test Email Sent",
