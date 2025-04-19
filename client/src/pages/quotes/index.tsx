@@ -24,11 +24,12 @@ import {
   DialogTrigger
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, FileText, Trash2, Send, Download } from "lucide-react";
+import { Plus, FileText, Trash2, Send, Download, Mail } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { QuoteForm } from "@/components/quotes/QuoteForm";
 import { generateQuotePDF, downloadPDF } from "@/lib/pdf-utils";
 import { QuoteWithDetails, ContactWithDetail } from "@/lib/types";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Quotes() {
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -98,6 +99,53 @@ export default function Quotes() {
     
     const pdfBytes = await generateQuotePDF(quoteWithItems, contact);
     downloadPDF(pdfBytes, `Quote-${quote.id.substring(0, 8)}.pdf`);
+  };
+  
+  // Use the toast hook for notifications
+  const { toast } = useToast();
+  
+  // Handle sending quote via email
+  const sendQuoteEmailMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("POST", `/api/quotes/${id}/send`);
+    },
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/quotes"] });
+      toast({
+        title: "Quote sent",
+        description: "The quote has been emailed to the client successfully.",
+        duration: 3000,
+      });
+      // Update quote status to "sent"
+      updateQuoteStatusMutation.mutate({ id, status: "sent" });
+    },
+    onError: (error) => {
+      console.error("Failed to send quote email:", error);
+      toast({
+        title: "Error sending quote",
+        description: "There was a problem sending the quote via email. Please check if SendGrid API key is configured correctly.",
+        variant: "destructive",
+        duration: 5000,
+      });
+    }
+  });
+  
+  const handleSendQuoteEmail = async (quote: QuoteWithDetails) => {
+    if (!contacts) return;
+    
+    const contact = contacts.find((c: ContactWithDetail) => c.id === quote.contactId);
+    if (!contact || !contact.email) {
+      toast({
+        title: "Cannot send email",
+        description: "This contact does not have an email address.",
+        variant: "destructive",
+        duration: 3000,
+      });
+      return;
+    }
+    
+    // Send the quote via the server endpoint
+    sendQuoteEmailMutation.mutate(quote.id);
   };
 
   const getStatusBadge = (status: string) => {
