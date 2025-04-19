@@ -624,42 +624,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Test email route
+  // Test email route with support for both Resend and SendGrid
   app.post("/api/test-email", async (req: Request, res: Response) => {
-    const { to } = req.body;
+    const { to, subject, text, service } = req.body;
     const emailAddress = to || 'nicksanford2341@gmail.com';
+    const emailSubject = subject || 'Test Email from APS Flooring';
+    const emailText = text || 'This is a test email to verify our email sending functionality is working correctly.';
+    const emailService = service || 'resend'; // Default to Resend if not specified
+    
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
+        <h2 style="color: #333;">Test Email</h2>
+        <p>This is a test email from the APS Flooring Management Portal.</p>
+        <p>${emailText}</p>
+        <p>Sent using: ${emailService === 'resend' ? 'Resend' : 'SendGrid'}</p>
+        <p style="margin-top: 30px; font-size: 12px; color: #777;">
+          This is an automated test message. Please do not reply to this email.
+        </p>
+      </div>
+    `;
 
     try {
-      // Import the sendEmail function from resend.ts
-      const { sendEmail } = await import('./resend');
+      let result = false;
       
-      // Send a test email
-      const result = await sendEmail({
-        to: emailAddress,
-        subject: 'Test Email from APS Flooring',
-        text: 'This is a test email to verify our email sending functionality is working correctly.',
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
-            <h2 style="color: #333;">Test Email</h2>
-            <p>This is a test email from the APS Flooring Management Portal.</p>
-            <p>If you're receiving this, it means our email configuration is working correctly!</p>
-            <p style="margin-top: 30px; font-size: 12px; color: #777;">
-              This is an automated test message. Please do not reply to this email.
-            </p>
-          </div>
-        `
-      });
+      if (emailService === 'sendgrid') {
+        // Use SendGrid
+        const { sendEmail } = await import('./email');
+        
+        result = await sendEmail({
+          to: emailAddress,
+          from: process.env.SENDGRID_VERIFIED_SENDER || 'nicholas@atlasgrowth.ai',
+          subject: emailSubject,
+          text: emailText,
+          html: htmlContent
+        });
+        
+        console.log(`Using SendGrid to send test email to ${emailAddress}`);
+      } else {
+        // Use Resend (default)
+        const { sendEmail } = await import('./resend');
+        
+        result = await sendEmail({
+          to: emailAddress,
+          subject: emailSubject,
+          text: emailText,
+          html: htmlContent
+        });
+        
+        console.log(`Using Resend to send test email to ${emailAddress}`);
+      }
       
       if (result) {
-        console.log(`Test email sent successfully to ${emailAddress}`);
-        return res.status(200).json({ success: true, message: 'Test email sent successfully' });
+        console.log(`Test email sent successfully to ${emailAddress} using ${emailService}`);
+        return res.status(200).json({ 
+          success: true, 
+          message: `Test email sent successfully using ${emailService}`,
+          service: emailService
+        });
       } else {
-        console.error(`Failed to send test email to ${emailAddress}`);
-        return res.status(500).json({ success: false, message: 'Failed to send test email' });
+        console.error(`Failed to send test email to ${emailAddress} using ${emailService}`);
+        return res.status(500).json({ 
+          success: false, 
+          message: `Failed to send test email using ${emailService}`,
+          service: emailService 
+        });
       }
     } catch (error) {
-      console.error('Error sending test email:', error);
-      return res.status(500).json({ success: false, message: 'Error sending test email', error });
+      console.error(`Error sending test email using ${emailService}:`, error);
+      return res.status(500).json({ 
+        success: false, 
+        message: `Error sending test email using ${emailService}`, 
+        error,
+        service: emailService
+      });
     }
   });
 
