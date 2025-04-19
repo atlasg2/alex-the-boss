@@ -15,7 +15,6 @@ import Schedule from "@/pages/schedule";
 import Messaging from "@/pages/messaging";
 import Portal from "@/pages/portal";
 import JobPortal from "@/pages/portal/[jobId]";
-import TestEmail from "@/pages/test-email";
 
 function Router() {
   return (
@@ -31,7 +30,6 @@ function Router() {
       <Route path="/messaging" component={Messaging} />
       <Route path="/portal" component={Portal} />
       <Route path="/portal/:jobId" component={JobPortal} />
-      <Route path="/test-email" component={TestEmail} />
       <Route component={NotFound} />
     </Switch>
   );
