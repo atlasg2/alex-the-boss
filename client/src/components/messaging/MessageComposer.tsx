@@ -72,7 +72,8 @@ export function MessageComposer({
       });
     }
   });
-
+  
+  // Handle sending a regular message
   const handleSendMessage = () => {
     if (!message.trim()) return;
     
@@ -81,35 +82,55 @@ export function MessageComposer({
       contactId,
       body: message,
       direction: "outbound",
-      type: "email"
+      type: "message" // Regular message type
     });
   };
 
-  const handleSendEmail = () => {
-    if (!message.trim()) return;
-    
-    // For emails with subject lines
-    sendMessageMutation.mutate({
-      contactId,
-      subject: subject || "Message from Pereira Construction",
-      body: message,
-      direction: "outbound",
-      type: "email"
-    });
-  };
-
+  // Open the email dialog
   const openEmailDialog = () => {
     if (!contactEmail) {
       toast({
-        title: "Contact has no email",
-        description: "This contact doesn't have an email address. Please add one before sending emails.",
+        title: "Cannot send email",
+        description: "This contact does not have an email address.",
         variant: "destructive",
-        duration: 5000,
+        duration: 3000,
       });
       return;
     }
     
     setShowEmailDialog(true);
+  };
+  
+  // Handle sending an email
+  const handleSendEmail = () => {
+    if (!message.trim()) {
+      toast({
+        title: "Email body is empty",
+        description: "Please enter a message to send.",
+        variant: "destructive",
+        duration: 3000,
+      });
+      return;
+    }
+    
+    if (!subject.trim()) {
+      toast({
+        title: "Subject is empty",
+        description: "Please enter an email subject.",
+        variant: "destructive",
+        duration: 3000,
+      });
+      return;
+    }
+    
+    // Send via the regular message endpoint but with type: 'email'
+    sendMessageMutation.mutate({
+      contactId: contactId,
+      subject: subject,
+      body: message,
+      direction: "outbound",
+      type: "email" // Email type
+    });
   };
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
