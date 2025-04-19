@@ -6,23 +6,12 @@ import dotenv from 'dotenv';
 // Load environment variables from .env file
 dotenv.config();
 
-// Debug environment variables
-console.log('Environment variables for Resend:');
-console.log('RESEND_API_KEY exists:', process.env.RESEND_API_KEY ? 'Yes' : 'No');
-console.log('RESEND_VERIFIED_SENDER:', process.env.RESEND_VERIFIED_SENDER);
-
-// Initialize Resend
-const resendApiKey = process.env.RESEND_API_KEY;
-if (!resendApiKey) {
-  console.error('RESEND_API_KEY is not set. Email functionality will not work.');
-}
-const resend = new Resend(resendApiKey);
+// Initialize Resend with the correct API key format
+const RESEND_API_KEY = process.env.RESEND_API_KEY || 're_8m9gwsVG_6n94KaJkJ42Yj6qSeVvLq9xF'; // Using your example API key
+const resend = new Resend(RESEND_API_KEY);
 
 // Use the verified sender from environment variables
-const VERIFIED_SENDER = process.env.RESEND_VERIFIED_SENDER;
-if (!VERIFIED_SENDER) {
-  console.error('RESEND_VERIFIED_SENDER is not set. Email functionality will not work.');
-}
+const VERIFIED_SENDER = process.env.RESEND_VERIFIED_SENDER || 'alex@apsflooring.info';
 
 interface EmailParams {
   to: string;
@@ -36,7 +25,7 @@ interface EmailParams {
  * Send an email using Resend
  */
 export async function sendEmail(params: EmailParams): Promise<boolean> {
-  if (!resendApiKey) {
+  if (!RESEND_API_KEY) {
     console.error('Resend API key is not set. Email not sent.');
     return false;
   }
