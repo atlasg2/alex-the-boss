@@ -1,10 +1,18 @@
 import { MailService } from '@sendgrid/mail';
 import { storage } from './storage';
 import { Contact, Message } from '@shared/schema';
+import dotenv from 'dotenv';
+
+// Load environment variables from .env file
+dotenv.config();
 
 // Initialize the SendGrid mail service
 if (!process.env.SENDGRID_API_KEY) {
   console.warn("SENDGRID_API_KEY environment variable is not set. Email functionality will not work.");
+}
+
+if (!process.env.SENDGRID_VERIFIED_SENDER) {
+  console.warn("SENDGRID_VERIFIED_SENDER environment variable is not set. A verified sender email is required for SendGrid.");
 }
 
 const mailService = new MailService();
@@ -12,10 +20,8 @@ if (process.env.SENDGRID_API_KEY) {
   mailService.setApiKey(process.env.SENDGRID_API_KEY);
 }
 
-// Default sender email address - this should be a verified sender in your SendGrid account
-const DEFAULT_FROM_EMAIL = process.env.SENDGRID_API_KEY 
-  ? 'notifications@pereiraconstruction.com' 
-  : 'no-reply@example.com';
+// Always use the verified sender email for SendGrid
+const DEFAULT_FROM_EMAIL = process.env.SENDGRID_VERIFIED_SENDER || 'nicholas@atlasgrowth.ai';
 
 interface EmailParams {
   to: string;
