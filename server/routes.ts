@@ -630,19 +630,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const emailAddress = to || 'nicksanford2341@gmail.com';
 
     try {
-      // Import the sendEmail function from email.ts
-      const { sendEmail } = await import('./email');
+      // Import the sendEmail function from resend.ts
+      const { sendEmail } = await import('./resend');
       
       // Send a test email
       const result = await sendEmail({
         to: emailAddress,
-        from: process.env.SENDGRID_VERIFIED_SENDER || 'nicholas@atlasgrowth.ai',
-        subject: 'Test Email from Contractor Portal',
+        subject: 'Test Email from APS Flooring',
         text: 'This is a test email to verify our email sending functionality is working correctly.',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
             <h2 style="color: #333;">Test Email</h2>
-            <p>This is a test email from the Contractor Management Portal.</p>
+            <p>This is a test email from the APS Flooring Management Portal.</p>
             <p>If you're receiving this, it means our email configuration is working correctly!</p>
             <p style="margin-top: 30px; font-size: 12px; color: #777;">
               This is an automated test message. Please do not reply to this email.

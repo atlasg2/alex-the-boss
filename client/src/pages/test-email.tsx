@@ -71,7 +71,7 @@ export default function TestEmailPage() {
             Send Test Email
           </CardTitle>
           <CardDescription>
-            Send a test email to verify your SendGrid configuration
+            Send a test email to verify your Resend configuration
           </CardDescription>
         </CardHeader>
         
