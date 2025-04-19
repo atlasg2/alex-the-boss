@@ -10,6 +10,8 @@ import { PortalTimeline } from "@/components/portal/PortalTimeline";
 import { PortalDocuments } from "@/components/portal/PortalDocuments";
 import { PortalPhotos } from "@/components/portal/PortalPhotos";
 import { ContactManager } from "@/components/portal/ContactManager";
+import { PortalWebSocketProvider } from "@/components/portal/PortalWebSocketProvider";
+import { PortalLiveUpdates } from "@/components/portal/PortalLiveUpdates";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, Loader2 } from "lucide-react";
 
@@ -92,36 +94,41 @@ export default function JobPortal() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100">
-      <JobPortalHeader contact={portalData.contact} />
-      
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
-        <h1 className="text-2xl font-semibold text-slate-800 mb-6">Your Project Dashboard</h1>
+    <PortalWebSocketProvider jobId={portalData.job.id}>
+      <div className="min-h-screen bg-slate-100">
+        <JobPortalHeader contact={portalData.contact} />
         
-        <div className="space-y-8">
-          {/* Project Overview Section */}
-          <PortalJobOverview job={portalData.job} />
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+          <h1 className="text-2xl font-semibold text-slate-800 mb-6">Your Project Dashboard</h1>
           
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Project Timeline */}
-            <PortalTimeline job={portalData.job} />
+          {/* Live Updates Component */}
+          <PortalLiveUpdates />
+          
+          <div className="space-y-8">
+            {/* Project Overview Section */}
+            <PortalJobOverview job={portalData.job} />
             
-            {/* Project Documents */}
-            <PortalDocuments 
-              invoices={portalData.invoices} 
-              files={portalData.files}
-              contract={portalData.contract}
-              quote={portalData.quote}
-            />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Project Timeline */}
+              <PortalTimeline job={portalData.job} />
+              
+              {/* Project Documents */}
+              <PortalDocuments 
+                invoices={portalData.invoices} 
+                files={portalData.files}
+                contract={portalData.contract}
+                quote={portalData.quote}
+              />
+            </div>
+            
+            {/* Project Photos */}
+            <PortalPhotos files={portalData.files} />
+            
+            {/* Contact Section */}
+            <ContactManager />
           </div>
-          
-          {/* Project Photos */}
-          <PortalPhotos files={portalData.files} />
-          
-          {/* Contact Section */}
-          <ContactManager />
         </div>
       </div>
-    </div>
+    </PortalWebSocketProvider>
   );
 }
