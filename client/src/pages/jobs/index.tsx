@@ -37,12 +37,15 @@ import {
   Clock, 
   Plus,
   Upload,
-  MessageSquare
+  MessageSquare,
+  ExternalLink
 } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { JobDetail } from "@/components/jobs/JobDetail";
 import { FileUpload } from "@/components/jobs/FileUpload";
 import { ContactWithDetail } from "@/lib/types";
+import { generatePortalToken } from "@/lib/auth";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Jobs() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -125,6 +128,44 @@ export default function Jobs() {
   // Handle stage update
   const handleUpdateStage = (jobId: string, newStage: string) => {
     updateJobStageMutation.mutate({ id: jobId, stage: newStage });
+  };
+  
+  // Portal access management
+  const { toast } = useToast();
+  const handleCreatePortalAccess = async (jobId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent opening job details
+    
+    try {
+      const result = await generatePortalToken(jobId);
+      if (result.success) {
+        // Create URL with the token
+        const portalUrl = `${window.location.origin}/portal/${result.token}`;
+        
+        // Copy to clipboard
+        await navigator.clipboard.writeText(portalUrl);
+        
+        toast({
+          title: "Portal Link Created!",
+          description: "The client portal link has been copied to your clipboard.",
+        });
+        
+        // Open portal in new tab
+        window.open(`/portal/${result.token}`, '_blank');
+      } else {
+        toast({
+          title: "Error Creating Portal Link",
+          description: "There was a problem generating the portal link.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Portal access error:", error);
+      toast({
+        title: "Error Creating Portal Link",
+        description: "There was a problem generating the portal link.",
+        variant: "destructive"
+      });
+    }
   };
 
   // Helper to get stage badge
@@ -328,6 +369,19 @@ export default function Jobs() {
                               </span>
                             </div>
                             
+                            {/* Client Portal Link */}
+                            <div className="flex justify-end mt-2">
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                className="text-xs py-0 h-7 px-2 flex items-center"
+                                onClick={(e) => handleCreatePortalAccess(job.id, e)}
+                              >
+                                <ExternalLink className="h-3 w-3 mr-1" />
+                                Client Portal
+                              </Button>
+                            </div>
+                            
                             {/* Stage controls */}
                             {stage !== "planning" && (
                               <button 
@@ -399,7 +453,17 @@ export default function Jobs() {
                       {selectedJob.siteAddress}
                     </DialogDescription>
                   </div>
-                  <div>{getStageBadge(selectedJob.stage)}</div>
+                  <div className="flex items-center gap-2">
+                    {getStageBadge(selectedJob.stage)}
+                    <Button 
+                      size="sm" 
+                      onClick={(e) => handleCreatePortalAccess(selectedJob.id, e)}
+                      className="flex items-center"
+                    >
+                      <ExternalLink className="h-4 w-4 mr-1" />
+                      Client Portal
+                    </Button>
+                  </div>
                 </div>
                 
                 <TabsList className="mt-4">
