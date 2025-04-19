@@ -7,12 +7,17 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 // Initialize Resend
-const resendApiKey = process.env.RESEND_API_KEY || 're_R11XmYKk_E8GXuKQABgi1RftEjoL2vVcUb';
+const resendApiKey = process.env.RESEND_API_KEY;
+if (!resendApiKey) {
+  console.error('RESEND_API_KEY is not set. Email functionality will not work.');
+}
 const resend = new Resend(resendApiKey);
 
-// Default domain for sender emails
-const DEFAULT_DOMAIN = 'apsflooring.info';
-const DEFAULT_FROM_EMAIL = `noreply@${DEFAULT_DOMAIN}`;
+// Use the verified sender from environment variables
+const VERIFIED_SENDER = process.env.RESEND_VERIFIED_SENDER;
+if (!VERIFIED_SENDER) {
+  console.error('RESEND_VERIFIED_SENDER is not set. Email functionality will not work.');
+}
 
 interface EmailParams {
   to: string;
@@ -32,8 +37,13 @@ export async function sendEmail(params: EmailParams): Promise<boolean> {
   }
 
   try {
+    if (!VERIFIED_SENDER) {
+      console.error('RESEND_VERIFIED_SENDER is not set. Email not sent.');
+      return false;
+    }
+    
     const { data, error } = await resend.emails.send({
-      from: params.from || DEFAULT_FROM_EMAIL,
+      from: params.from || VERIFIED_SENDER,
       to: params.to,
       subject: params.subject,
       text: params.text || '',

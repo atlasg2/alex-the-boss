@@ -7,7 +7,7 @@ import {
   insertFileSchema, insertMessageSchema, insertNoteSchema, insertPortalTokenSchema
 } from "@shared/schema";
 import { z } from "zod";
-import { sendMessageToContact, sendQuoteEmail, sendInvoiceEmail } from "./email";
+import { sendMessageToContact, sendQuoteEmail, sendInvoiceEmail } from "./resend";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Contacts API
@@ -437,7 +437,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const messageData = insertMessageSchema.parse(req.body);
       
-      // If this is an outbound email message, handle it with SendGrid
+      // If this is an outbound email message, handle it with Resend
       if (messageData.type === 'email' && messageData.direction === 'outbound' && messageData.contactId) {
         // Get the contact to make sure we have their email
         const contact = await storage.getContact(messageData.contactId);
@@ -450,7 +450,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Send the message via email
         const message = await sendMessageToContact(
           messageData.contactId,
-          messageData.subject || 'Message from Pereira Construction',
+          messageData.subject || 'Message from APS Flooring',
           messageData.body
         );
         
