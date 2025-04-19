@@ -1,4 +1,4 @@
-import type { Express, Request, Response } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { 
@@ -7,6 +7,7 @@ import {
   insertFileSchema, insertMessageSchema, insertNoteSchema, insertPortalTokenSchema
 } from "@shared/schema";
 import { z } from "zod";
+import { sendMessageToContact, sendQuoteEmail, sendInvoiceEmail } from "./email";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Contacts API
@@ -435,13 +436,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/messages", async (req: Request, res: Response) => {
     try {
       const messageData = insertMessageSchema.parse(req.body);
-      const message = await storage.createMessage(messageData);
-      res.status(201).json(message);
+      
+      // If this is an outbound email message, handle it with SendGrid
+      if (messageData.type === 'email' && messageData.direction === 'outbound' && messageData.contactId) {
+        // Get the contact to make sure we have their email
+        const contact = await storage.getContact(messageData.contactId);
+        if (!contact || !contact.email) {
+          return res.status(400).json({ 
+            message: "Cannot send email: Contact not found or has no email address" 
+          });
+        }
+        
+        // Send the message via email
+        const message = await sendMessageToContact(
+          messageData.contactId,
+          messageData.subject || 'Message from Pereira Construction',
+          messageData.body
+        );
+        
+        if (message) {
+          return res.status(201).json(message);
+        } else {
+          return res.status(500).json({ message: "Failed to send email message" });
+        }
+      } else {
+        // Regular message creation without sending emails
+        const message = await storage.createMessage(messageData);
+        res.status(201).json(message);
+      }
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid message data", errors: error.errors });
       }
       res.status(500).json({ message: "Failed to create message" });
+    }
+  });
+  
+  // Send a quote by email
+  app.post("/api/quotes/:id/send", async (req: Request, res: Response) => {
+    try {
+      const quoteId = req.params.id;
+      const quote = await storage.getQuote(quoteId);
+      
+      if (!quote) {
+        return res.status(404).json({ message: "Quote not found" });
+      }
+      
+      // Update the quote status to 'sent'
+      await storage.updateQuote(quoteId, { status: 'sent' });
+      
+      // Send the quote email
+      const success = await sendQuoteEmail(quote.contactId, quoteId);
+      
+      if (success) {
+        res.status(200).json({ message: "Quote sent successfully" });
+      } else {
+        res.status(500).json({ message: "Failed to send quote email" });
+      }
+    } catch (error) {
+      console.error("Error sending quote:", error);
+      res.status(500).json({ message: "Failed to send quote" });
+    }
+  });
+  
+  // Send an invoice by email
+  app.post("/api/invoices/:id/send", async (req: Request, res: Response) => {
+    try {
+      const invoiceId = req.params.id;
+      const invoice = await storage.getInvoice(invoiceId);
+      
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      
+      // Update the invoice status to 'sent'
+      await storage.updateInvoice(invoiceId, { status: 'sent' });
+      
+      // Send the invoice email
+      const success = await sendInvoiceEmail(invoiceId);
+      
+      if (success) {
+        res.status(200).json({ message: "Invoice sent successfully" });
+      } else {
+        res.status(500).json({ message: "Failed to send invoice email" });
+      }
+    } catch (error) {
+      console.error("Error sending invoice:", error);
+      res.status(500).json({ message: "Failed to send invoice" });
     }
   });
   

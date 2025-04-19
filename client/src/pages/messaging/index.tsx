@@ -157,7 +157,11 @@ export default function Messaging() {
                   />
                 </div>
                 <div className="p-4">
-                  <MessageComposer contactId={selectedContact.id} />
+                  <MessageComposer 
+                    contactId={selectedContact.id}
+                    contactEmail={selectedContact.email || undefined}
+                    contactName={`${selectedContact.firstName} ${selectedContact.lastName}`}
+                  />
                 </div>
               </>
             ) : (

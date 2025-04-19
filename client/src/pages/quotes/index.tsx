@@ -199,6 +199,16 @@ export default function Quotes() {
                             <Download className="h-4 w-4" />
                             <span className="sr-only">Download PDF</span>
                           </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleSendQuoteEmail(quote)}
+                            title="Send via Email"
+                            disabled={!quote.contactId || quote.status === "sent" || quote.status === "accepted"}
+                          >
+                            <Mail className="h-4 w-4" />
+                            <span className="sr-only">Send via Email</span>
+                          </Button>
                           {quote.status === "draft" && (
                             <>
                               <Button
