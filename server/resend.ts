@@ -1,17 +1,17 @@
 import { Resend } from 'resend';
 import { storage } from './storage';
-import { Message } from '@shared/schema';
-import dotenv from 'dotenv';
+import { render } from '@react-email/render';
+import { EmailTemplate } from './emails/EmailTemplate';
 
-// Load environment variables from .env file
-dotenv.config();
-
-// Initialize Resend with the correct API key format
-const RESEND_API_KEY = process.env.RESEND_API_KEY || 're_8m9gwsVG_6n94KaJkJ42Yj6qSeVvLq9xF'; // Using your example API key
-const resend = new Resend(RESEND_API_KEY);
-
-// Use the verified sender from environment variables
+// Initialize Resend with API key
+const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 const VERIFIED_SENDER = process.env.RESEND_VERIFIED_SENDER || 'alex@apsflooring.info';
+
+if (!RESEND_API_KEY) {
+  console.warn('RESEND_API_KEY environment variable is not set. Email functionality will not work.');
+}
+
+const resend = new Resend(RESEND_API_KEY);
 
 interface EmailParams {
   to: string;
@@ -25,27 +25,24 @@ interface EmailParams {
  * Send an email using Resend
  */
 export async function sendEmail(params: EmailParams): Promise<boolean> {
-  if (!RESEND_API_KEY) {
-    console.error('Resend API key is not set. Email not sent.');
-    return false;
-  }
-
   try {
-    if (!VERIFIED_SENDER) {
-      console.error('RESEND_VERIFIED_SENDER is not set. Email not sent.');
+    if (!RESEND_API_KEY) {
+      console.error('RESEND_API_KEY is not set');
       return false;
     }
+
+    const from = params.from || VERIFIED_SENDER;
     
     console.log('Sending email with Resend:');
-    console.log('From:', params.from || VERIFIED_SENDER);
+    console.log('From:', from);
     console.log('To:', params.to);
     console.log('Subject:', params.subject);
-    
+
     const { data, error } = await resend.emails.send({
-      from: params.from || VERIFIED_SENDER,
+      from,
       to: params.to,
       subject: params.subject,
-      text: params.text || '',
+      text: params.text,
       html: params.html || ''
     });
 
@@ -54,10 +51,10 @@ export async function sendEmail(params: EmailParams): Promise<boolean> {
       return false;
     }
 
-    console.log(`Email sent to ${params.to}, ID: ${data?.id}`);
+    console.log('Email sent successfully with ID:', data?.id);
     return true;
   } catch (error) {
-    console.error('Resend email error:', error);
+    console.error('Error sending email with Resend:', error);
     return false;
   }
 }
@@ -66,134 +63,120 @@ export async function sendEmail(params: EmailParams): Promise<boolean> {
  * Send an email message to a contact and save it in the database
  */
 export async function sendMessageToContact(
-  contactId: string, 
-  subject: string, 
-  body: string
-): Promise<Message | null> {
-  // Get the contact to retrieve their email
-  const contact = await storage.getContact(contactId);
-  if (!contact || !contact.email) {
-    console.error(`Cannot send email: Contact ${contactId} not found or has no email.`);
-    return null;
+  contactId: string,
+  subject: string,
+  body: string,
+  useHtml: boolean = false
+): Promise<boolean> {
+  try {
+    const contact = await storage.getContact(contactId);
+    if (!contact?.email) {
+      console.error(`Contact ${contactId} not found or has no email`);
+      return false;
+    }
+
+    // Create template with recipient name
+    const emailHtml = render(EmailTemplate({
+      recipientName: `${contact.firstName || ''} ${contact.lastName || ''}`.trim() || 'there',
+      message: body,
+      subject: subject
+    }));
+
+    // Send the email
+    const success = await sendEmail({
+      to: contact.email,
+      subject,
+      text: body,
+      html: emailHtml
+    });
+
+    if (success) {
+      // Save the message in the database
+      await storage.createMessage({
+        contactId,
+        subject,
+        body,
+        type: 'email',
+        direction: 'outbound',
+        readStatus: true
+      });
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error('Error sending message to contact:', error);
+    return false;
   }
-
-  // Create the message in the database first
-  const newMessage = await storage.createMessage({
-    contactId,
-    subject,
-    body,
-    type: 'email',
-    direction: 'outbound',
-    readStatus: true
-  });
-
-  // Send the actual email via Resend
-  const emailSent = await sendEmail({
-    to: contact.email,
-    subject: subject || 'Message from APS Flooring',
-    text: body,
-    html: `<div style="font-family: Arial, sans-serif; line-height: 1.6;">
-      <p>${body.replace(/\n/g, '<br/>')}</p>
-      <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;" />
-      <p style="color: #666; font-size: 12px;">
-        This email was sent from the APS Flooring Management Portal.
-      </p>
-    </div>`,
-  });
-
-  // If email sending fails, we still keep the message in our database but mark it somehow
-  // For now, we're just logging the failure
-  if (!emailSent) {
-    console.error(`Failed to send email to ${contact.email}`);
-  }
-
-  return newMessage;
 }
 
 /**
  * Send a quote notification email
  */
 export async function sendQuoteEmail(
-  contactId: string,
   quoteId: string,
-  subject = 'Your Quote from APS Flooring'
+  message: string = 'Please review the attached quote at your earliest convenience.'
 ): Promise<boolean> {
-  const contact = await storage.getContact(contactId);
-  const quote = await storage.getQuote(quoteId);
-  
-  if (!contact || !contact.email || !quote) {
-    console.error('Cannot send quote email: Missing contact or quote data');
+  try {
+    const quote = await storage.getQuote(quoteId);
+    if (!quote) {
+      console.error(`Quote ${quoteId} not found`);
+      return false;
+    }
+
+    const contact = await storage.getContact(quote.contactId);
+    if (!contact?.email) {
+      console.error(`Contact for quote ${quoteId} not found or has no email`);
+      return false;
+    }
+
+    // Update quote status to "sent"
+    await storage.updateQuote(quoteId, { status: "sent" });
+
+    // Prepare email content
+    const recipientName = `${contact.firstName || ''} ${contact.lastName || ''}`.trim() || 'there';
+    const subject = `Quote from APS Flooring - $${Number(quote.total).toLocaleString('en-US')}`;
+    
+    // For now, we don't attach PDFs yet, but we'll implement that later
+    const emailContent = `
+      ${message}
+
+      Quote Details:
+      - Total: $${Number(quote.total).toLocaleString('en-US')}
+      - Valid Until: ${quote.validUntil ? new Date(quote.validUntil).toLocaleDateString() : 'N/A'}
+    `;
+
+    // Create template
+    const emailHtml = render(EmailTemplate({
+      recipientName,
+      message: emailContent,
+      subject
+    }));
+
+    // Send the email
+    const success = await sendEmail({
+      to: contact.email,
+      subject,
+      text: emailContent,
+      html: emailHtml
+    });
+
+    if (success) {
+      // Record the message
+      await storage.createMessage({
+        contactId: contact.id,
+        subject,
+        body: message,
+        type: 'email',
+        direction: 'outbound',
+        readStatus: true
+      });
+    }
+
+    return success;
+  } catch (error) {
+    console.error('Error sending quote email:', error);
     return false;
   }
-
-  const items = await storage.getQuoteItems(quoteId);
-  
-  // Create a simple HTML template for the quote email
-  const htmlContent = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #333;">Your Quote from APS Flooring</h2>
-      <p>Dear ${contact.firstName},</p>
-      <p>Thank you for your interest. Please find your quote details below:</p>
-      
-      <div style="background-color: #f7f7f7; padding: 15px; border-radius: 5px; margin: 20px 0;">
-        <h3 style="margin-top: 0; color: #555;">Quote Summary</h3>
-        <p><strong>Quote ID:</strong> ${quote.id}</p>
-        <p><strong>Total Amount:</strong> $${Number(quote.total).toFixed(2)}</p>
-        <p><strong>Valid Until:</strong> ${new Date(quote.validUntil || '').toLocaleDateString()}</p>
-      </div>
-
-      <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-        <thead>
-          <tr style="background-color: #eee;">
-            <th style="padding: 10px; text-align: left; border-bottom: 1px solid #ddd;">Description</th>
-            <th style="padding: 10px; text-align: right; border-bottom: 1px solid #ddd;">Qty</th>
-            <th style="padding: 10px; text-align: right; border-bottom: 1px solid #ddd;">Unit Price</th>
-            <th style="padding: 10px; text-align: right; border-bottom: 1px solid #ddd;">Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${items.map(item => `
-            <tr>
-              <td style="padding: 10px; border-bottom: 1px solid #ddd;">${item.description}</td>
-              <td style="padding: 10px; text-align: right; border-bottom: 1px solid #ddd;">${item.quantity}</td>
-              <td style="padding: 10px; text-align: right; border-bottom: 1px solid #ddd;">$${Number(item.unitPrice).toFixed(2)}</td>
-              <td style="padding: 10px; text-align: right; border-bottom: 1px solid #ddd;">$${(Number(item.unitPrice) * item.quantity).toFixed(2)}</td>
-            </tr>
-          `).join('')}
-        </tbody>
-        <tfoot>
-          <tr>
-            <td colspan="3" style="padding: 10px; text-align: right; font-weight: bold;">Total:</td>
-            <td style="padding: 10px; text-align: right; font-weight: bold;">$${Number(quote.total).toFixed(2)}</td>
-          </tr>
-        </tfoot>
-      </table>
-
-      <p>To accept this quote or if you have any questions, please contact us directly.</p>
-      <p>Thank you for choosing APS Flooring for your project.</p>
-      
-      <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; color: #777; font-size: 12px;">
-        <p>This is an automated email from APS Flooring Management Portal. Please do not reply to this email.</p>
-      </div>
-    </div>
-  `;
-
-  // Store the email as a message in our system
-  await storage.createMessage({
-    contactId,
-    subject,
-    body: `Quote #${quoteId} has been sent to your email.`,
-    type: 'email',
-    direction: 'outbound',
-    readStatus: true
-  });
-
-  // Send the actual email
-  return await sendEmail({
-    to: contact.email,
-    subject,
-    html: htmlContent
-  });
 }
 
 /**
@@ -201,69 +184,78 @@ export async function sendQuoteEmail(
  */
 export async function sendInvoiceEmail(
   invoiceId: string,
-  subject = 'Invoice from APS Flooring'
+  message: string = 'Please find your invoice attached. Payment is due by the date specified.'
 ): Promise<boolean> {
-  const invoice = await storage.getInvoice(invoiceId);
-  if (!invoice) {
-    console.error(`Invoice ${invoiceId} not found`);
+  try {
+    const invoice = await storage.getInvoice(invoiceId);
+    if (!invoice) {
+      console.error(`Invoice ${invoiceId} not found`);
+      return false;
+    }
+
+    const contract = await storage.getContract(invoice.contractId);
+    if (!contract) {
+      console.error(`Contract for invoice ${invoiceId} not found`);
+      return false;
+    }
+
+    const quote = await storage.getQuote(contract.quoteId);
+    if (!quote) {
+      console.error(`Quote for contract ${contract.id} not found`);
+      return false;
+    }
+
+    const contact = await storage.getContact(quote.contactId);
+    if (!contact?.email) {
+      console.error(`Contact for quote ${quote.id} not found or has no email`);
+      return false;
+    }
+
+    // Update invoice status to "sent"
+    await storage.updateInvoice(invoiceId, { status: "sent" });
+
+    // Prepare email content
+    const recipientName = `${contact.firstName || ''} ${contact.lastName || ''}`.trim() || 'there';
+    const subject = `Invoice from APS Flooring - $${Number(invoice.amountDue).toLocaleString('en-US')}`;
+    
+    const emailContent = `
+      ${message}
+
+      Invoice Details:
+      - Amount Due: $${Number(invoice.amountDue).toLocaleString('en-US')}
+      - Due Date: ${invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : 'N/A'}
+    `;
+
+    // Create template
+    const emailHtml = render(EmailTemplate({
+      recipientName,
+      message: emailContent,
+      subject
+    }));
+
+    // Send the email
+    const success = await sendEmail({
+      to: contact.email,
+      subject,
+      text: emailContent,
+      html: emailHtml
+    });
+
+    if (success) {
+      // Record the message
+      await storage.createMessage({
+        contactId: contact.id,
+        subject,
+        body: message,
+        type: 'email',
+        direction: 'outbound',
+        readStatus: true
+      });
+    }
+
+    return success;
+  } catch (error) {
+    console.error('Error sending invoice email:', error);
     return false;
   }
-
-  const contract = await storage.getContract(invoice.contractId);
-  if (!contract) {
-    console.error(`Contract ${invoice.contractId} not found`);
-    return false;
-  }
-
-  const quote = await storage.getQuote(contract.quoteId);
-  if (!quote) {
-    console.error(`Quote ${contract.quoteId} not found`);
-    return false;
-  }
-
-  const contact = await storage.getContact(quote.contactId);
-  if (!contact || !contact.email) {
-    console.error(`Contact for quote ${quote.id} not found or has no email`);
-    return false;
-  }
-
-  // Create HTML content for the invoice email
-  const htmlContent = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #333;">Invoice from APS Flooring</h2>
-      <p>Dear ${contact.firstName},</p>
-      <p>Please find your invoice details below:</p>
-      
-      <div style="background-color: #f7f7f7; padding: 15px; border-radius: 5px; margin: 20px 0;">
-        <h3 style="margin-top: 0; color: #555;">Invoice Summary</h3>
-        <p><strong>Invoice ID:</strong> ${invoice.id}</p>
-        <p><strong>Amount Due:</strong> $${Number(invoice.amountDue).toFixed(2)}</p>
-        <p><strong>Due Date:</strong> ${new Date(invoice.dueDate || '').toLocaleDateString()}</p>
-      </div>
-
-      <p>Please make payment by the due date to ensure uninterrupted service.</p>
-      <p>Thank you for choosing APS Flooring for your project.</p>
-      
-      <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; color: #777; font-size: 12px;">
-        <p>This is an automated email from APS Flooring Management Portal. Please do not reply to this email.</p>
-      </div>
-    </div>
-  `;
-
-  // Store the email as a message in our system
-  await storage.createMessage({
-    contactId: contact.id,
-    subject,
-    body: `Invoice #${invoiceId} has been sent to your email.`,
-    type: 'email',
-    direction: 'outbound',
-    readStatus: true
-  });
-
-  // Send the actual email
-  return await sendEmail({
-    to: contact.email,
-    subject,
-    html: htmlContent
-  });
 }

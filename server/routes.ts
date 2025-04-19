@@ -626,31 +626,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Test email route
   app.post("/api/test-email", async (req: Request, res: Response) => {
-    const { to } = req.body;
+    const { to, name, message } = req.body;
     const emailAddress = to || 'nicksanford2341@gmail.com';
+    const recipientName = name || 'there';
+    const emailMessage = message || 'This is a test email to verify our email system is working correctly.';
 
     try {
-      // Import the sendEmail function from resend.ts
+      // Import our email module
+      const { EmailTemplate } = await import('./emails/EmailTemplate');
+      const { render } = await import('@react-email/render');
       const { sendEmail } = await import('./resend');
       
-      // Send a test email
-      const result = await sendEmail({
+      console.log('Test email request:');
+      console.log('To:', emailAddress);
+      console.log('Name:', recipientName);
+      
+      // Render React email to HTML
+      const emailHtml = render(EmailTemplate({ 
+        recipientName: recipientName, 
+        message: emailMessage,
+        subject: 'Test Email from APS Flooring'
+      }));
+      
+      // Send the email using our resend module
+      const success = await sendEmail({
         to: emailAddress,
         subject: 'Test Email from APS Flooring',
-        text: 'This is a test email to verify our email sending functionality is working correctly.',
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
-            <h2 style="color: #333;">Test Email</h2>
-            <p>This is a test email from the APS Flooring Management Portal.</p>
-            <p>If you're receiving this, it means our email configuration is working correctly!</p>
-            <p style="margin-top: 30px; font-size: 12px; color: #777;">
-              This is an automated test message. Please do not reply to this email.
-            </p>
-          </div>
-        `
+        text: emailMessage,
+        html: emailHtml
       });
       
-      if (result) {
+      if (success) {
         console.log(`Test email sent successfully to ${emailAddress}`);
         return res.status(200).json({ success: true, message: 'Test email sent successfully' });
       } else {

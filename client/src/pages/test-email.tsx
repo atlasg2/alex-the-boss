@@ -1,14 +1,17 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { AlertCircle, CheckCircle2, Mail } from "lucide-react";
+import { AlertCircle, CheckCircle2, Mail, User, MessageSquare } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
 export default function TestEmailPage() {
   const [email, setEmail] = useState("nicksanford2341@gmail.com");
+  const [name, setName] = useState("");
+  const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
@@ -28,7 +31,13 @@ export default function TestEmailPage() {
     setError("");
 
     try {
-      const response = await apiRequest("POST", "/api/test-email", { to: email });
+      const payload = { 
+        to: email,
+        name: name || undefined,
+        message: message || undefined
+      };
+
+      const response = await apiRequest("POST", "/api/test-email", payload);
       
       // Parse the response to get the success status
       const result = response as any;
@@ -71,7 +80,7 @@ export default function TestEmailPage() {
             Send Test Email
           </CardTitle>
           <CardDescription>
-            Send a test email to verify your Resend configuration
+            Send a test email to verify your Resend configuration with React Email templates
           </CardDescription>
         </CardHeader>
         
@@ -85,6 +94,34 @@ export default function TestEmailPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Enter recipient email"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="name" className="flex items-center gap-1">
+                <User className="h-4 w-4" /> 
+                Recipient Name
+              </Label>
+              <Input
+                id="name"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Optional: Enter recipient name"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="message" className="flex items-center gap-1">
+                <MessageSquare className="h-4 w-4" />
+                Custom Message
+              </Label>
+              <Textarea
+                id="message"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="Optional: Enter a custom message"
+                rows={3}
               />
             </div>
             
