@@ -180,7 +180,7 @@ export function PortalDocumentViewer({
 
   const embedDocument = () => {
     const url = getDocumentUrl();
-    if (url === '#') {
+    if (!url || url === '#') {
       // Placeholder for documents without a URL
       return (
         <div className="flex flex-col items-center justify-center h-96 bg-slate-50 rounded-md">
