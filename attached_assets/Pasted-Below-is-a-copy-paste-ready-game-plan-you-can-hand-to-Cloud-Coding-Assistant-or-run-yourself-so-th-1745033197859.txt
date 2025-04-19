@@ -1,0 +1,234 @@
+Below is a copy‑paste‑ready game‑plan you can hand to Cloud Coding Assistant (or run yourself) so the portal is built one clean commit at a time.
+I’ve included:
+
+Tab list – now includes Invoices and *Customer Portal.
+
+Build order – smallest working slice first, then add interacting pieces.
+
+Exact CLI / code blocks for each milestone (just keep feeding them to the agent).
+
+Commit messages so progress is obvious.
+
+0. Tab map (final target)
+
+Route	Purpose	Depends on
+/dashboard	today’s jobs, unpaid invoices, unread msgs	Jobs, Invoices, Messages
+/contacts	leads / customers timeline	–
+/quotes	create & send estimates	Contacts
+/invoices	post‑job billing & payment tracking	Quotes → Contracts
+/contracts	PDF + e‑sign	Quotes
+/jobs	stages, photos, docs	Contracts
+/schedule	calendar of job events	Jobs
+/messaging	email / SMS threads	Contacts, Jobs
+/portal/[jobId]	read‑only customer view	Jobs, Files, Invoices
+/reports (later)	revenue, duration, lead ROI	everything
+Files live inside the Job detail screen; no extra tab.
+
+1. Milestone roadmap
+
+Milestone	What ships	Why it’s first
+M1 – Skeleton & Auth	Next.js + Tailwind + Supabase email magic‑link	App runnable, login works
+M2 – Contacts CRUD	Contacts table + list/ form UI	Every later entity joins to contacts
+M3 – Quotes + PDF	Quote builder, status flow, PDF preview	Unlocks Contracts + Portal invite rule
+M4 – Contracts & Invoices	e‑sign stub, invoice model, payment status	Makes Jobs financially trackable
+M5 – Jobs & Files	Kanban list, job detail, file upload	Core operational view
+M6 – Schedule	Calendar linked to job dates	Daily ops UX
+M7 – Customer Portal	Public route, approve quote, view job	Client delight
+M8 – Messaging	SendGrid/Twilio inbox	Single comms hub
+M9 – Reports	SQL views, charts	Insight / polish
+2. Commands & snippets (feed these in order)
+M1 – Skeleton & Auth
+bash
+Copy
+Edit
+# 1‑A  create repo
+npx create-next-app@latest pereira-portal \
+  --typescript --tailwind --eslint --app
+
+cd pereira-portal
+
+# 1‑B  deps for Supabase + PDF
+npm i @supabase/supabase-js @supabase/auth-helpers-nextjs
+npm i react-hook-form zod @hookform/resolvers
+npm i pdf-lib @react-pdf/renderer
+commit: feat: bootstrap Next.js app with Supabase deps
+
+bash
+Copy
+Edit
+# 1‑C  init Supabase project (use your org)
+supabase init
+
+# 1‑D  add env vars (local .env)
+echo "
+NEXT_PUBLIC_SUPABASE_URL=https://YOUR_URL.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR_PUBLIC_KEY
+SUPABASE_SERVICE_ROLE_KEY=YOUR_SERVICE_ROLE
+" >> .env
+Create a simple middleware.ts redirecting unauthenticated users to /login.
+
+commit: feat: Supabase email magic‑link auth flow
+
+M2 – Contacts CRUD
+supabase/migrations/001_contacts.sql
+
+sql
+Copy
+Edit
+create table contacts (
+  id uuid primary key default gen_random_uuid(),
+  company_name text,
+  first_name text,
+  last_name  text,
+  email text unique,
+  phone text,
+  type text check (type in ('lead','customer','supplier')),
+  created_at timestamptz default now()
+);
+bash
+Copy
+Edit
+supabase db push
+Generate types:
+
+bash
+Copy
+Edit
+npx supabase gen types typescript --linked > lib/database.types.ts
+Create pages/contacts/index.tsx with table + “Add contact” modal using React‑Hook‑Form.
+
+commit: feat: Contacts table + create / edit modal
+
+M3 – Quotes + PDF
+002_quotes.sql
+
+sql
+Copy
+Edit
+create type quote_status as enum ('draft','sent','accepted','expired');
+create table quotes (
+  id uuid primary key default gen_random_uuid(),
+  contact_id uuid references contacts(id) on delete cascade,
+  total numeric,
+  status quote_status default 'draft',
+  valid_until date,
+  created_at timestamptz default now()
+);
+create table quote_items (
+  id serial primary key,
+  quote_id uuid references quotes(id) on delete cascade,
+  description text,
+  sqft numeric,
+  unit_price numeric
+);
+bash
+Copy
+Edit
+supabase db push
+Add /quotes page:
+
+line‑item builder
+
+“Generate PDF” → use @react-pdf/renderer
+
+Button Send → email (SendGrid) with portal link token.
+
+commit: feat: Quote builder, PDF, email send
+
+M4 – Contracts & Invoices
+003_contracts_invoices.sql
+
+sql
+Copy
+Edit
+create table contracts (
+  id uuid primary key default gen_random_uuid(),
+  quote_id uuid references quotes(id) on delete cascade,
+  signed_url text,
+  status text check (status in ('pending','active','complete')) default 'pending'
+);
+
+create table invoices (
+  id uuid primary key default gen_random_uuid(),
+  contract_id uuid references contracts(id) on delete cascade,
+  amount_due numeric,
+  due_date date,
+  status text check (status in ('draft','sent','paid','overdue')) default 'draft'
+);
+bash
+Copy
+Edit
+supabase db push
+Add /contracts page (list + signer stub).
+Add /invoices page with Stripe “Mark as Paid” toggle.
+
+commit: feat: Contracts e‑sign stub & Invoices CRUD
+
+M5 – Jobs & Files
+004_jobs_files.sql
+
+sql
+Copy
+Edit
+create table jobs (
+  id uuid primary key default gen_random_uuid(),
+  contract_id uuid references contracts(id) on delete cascade,
+  title text,
+  site_address text,
+  stage text,
+  start_date date,
+  end_date date
+);
+
+create table files (
+  id uuid primary key default gen_random_uuid(),
+  job_id uuid references jobs(id) on delete cascade,
+  url text,
+  label text,
+  uploaded_by uuid references auth.users(id),
+  created_at timestamptz default now()
+);
+bash
+Copy
+Edit
+supabase db push
+Integrate @supabase/storage-js for S3‑like bucket; drag‑drop uploads in Job detail.
+
+commit: feat: Jobs kanban + file upload to Supabase Storage
+
+M6 – Schedule
+Install calendar:
+
+bash
+Copy
+Edit
+npm i @fullcalendar/react @fullcalendar/daygrid @fullcalendar/interaction
+Create /schedule page pulling jobs.start_date / end_date.
+
+commit: feat: Calendar view linked to jobs
+
+M7 – Customer Portal
+Public route /portal/[jobId] (no auth, token query param).
+Shows Quote → Accept button OR Job timeline + file download + invoice pay link.
+
+Generate token when Quote is sent:
+
+ts
+Copy
+Edit
+// /lib/token.ts
+import jwt from 'jsonwebtoken';
+export const signPortalToken = (jobId: string) =>
+  jwt.sign({ jobId }, process.env.PORTAL_SECRET!, { expiresIn: '30d' });
+commit: feat: Customer portal with quote approval & job timeline
+
+M8 – Messaging (email + SMS only)
+Add messages table, use SendGrid Inbound Parse + Twilio webhook → insert rows.
+Render threaded view in /messaging.
+
+commit: feat: email/SMS inbox threaded by contact
+
+M9 – Reports
+SQL views + simple bar / line charts (Chart.js).
+
+commit: feat: basic BI dashboard
