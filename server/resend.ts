@@ -6,6 +6,11 @@ import dotenv from 'dotenv';
 // Load environment variables from .env file
 dotenv.config();
 
+// Debug environment variables
+console.log('Environment variables for Resend:');
+console.log('RESEND_API_KEY exists:', process.env.RESEND_API_KEY ? 'Yes' : 'No');
+console.log('RESEND_VERIFIED_SENDER:', process.env.RESEND_VERIFIED_SENDER);
+
 // Initialize Resend
 const resendApiKey = process.env.RESEND_API_KEY;
 if (!resendApiKey) {
@@ -41,6 +46,11 @@ export async function sendEmail(params: EmailParams): Promise<boolean> {
       console.error('RESEND_VERIFIED_SENDER is not set. Email not sent.');
       return false;
     }
+    
+    console.log('Sending email with Resend:');
+    console.log('From:', params.from || VERIFIED_SENDER);
+    console.log('To:', params.to);
+    console.log('Subject:', params.subject);
     
     const { data, error } = await resend.emails.send({
       from: params.from || VERIFIED_SENDER,
