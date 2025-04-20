@@ -447,4 +447,23 @@ export class MemStorage implements IStorage {
 // export const storage = new DatabaseStorage();
 
 // Use memory storage for development/demo
-export const storage = new MemStorage();
+// Import database storage
+import { DatabaseStorage } from "./database-storage";
+import session from "express-session";
+import connectPg from "connect-pg-simple";
+import { pool } from "./db";
+
+// Use PostgreSQL session store
+const PostgresSessionStore = connectPg(session);
+
+// Create a session store instance
+const sessionStore = new PostgresSessionStore({ 
+  pool,
+  createTableIfMissing: true
+});
+
+// Use database storage instead of memory storage
+export const storage = new DatabaseStorage();
+
+// Add session store to the DatabaseStorage class
+(storage as any).sessionStore = sessionStore;
