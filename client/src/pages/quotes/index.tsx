@@ -16,6 +16,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+
+import {
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { 
   Dialog, 
   DialogContent, 
@@ -256,7 +260,7 @@ export default function Quotes() {
                         {contact ? `${contact.firstName} ${contact.lastName}` : 'Unknown'}
                         {contact?.companyName && <div className="text-xs text-slate-500">{contact.companyName}</div>}
                       </TableCell>
-                      <TableCell>${quote.total?.toFixed(2) || '0.00'}</TableCell>
+                      <TableCell>${typeof quote.total === 'number' ? quote.total.toFixed(2) : parseFloat(quote.total || '0').toFixed(2)}</TableCell>
                       <TableCell>{new Date(quote.createdAt).toLocaleDateString()}</TableCell>
                       <TableCell>{quote.validUntil ? new Date(quote.validUntil).toLocaleDateString() : 'N/A'}</TableCell>
                       <TableCell>{getStatusBadge(quote.status)}</TableCell>
@@ -346,6 +350,9 @@ export default function Quotes() {
         <DialogContent className="sm:max-w-[800px]">
           <DialogHeader>
             <DialogTitle>Edit Quote</DialogTitle>
+            <DialogDescription>
+              Update quote details for your client.
+            </DialogDescription>
           </DialogHeader>
           {selectedQuote && (
             <QuoteForm 
@@ -366,6 +373,9 @@ export default function Quotes() {
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Client Portal Access Created</DialogTitle>
+            <DialogDescription>
+              Client portal credentials have been generated successfully.
+            </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4 py-4">
