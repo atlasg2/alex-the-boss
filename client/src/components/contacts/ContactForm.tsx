@@ -55,24 +55,51 @@ export function ContactForm({ contact, onClose, onSuccess }: ContactFormProps) {
   // Setup mutations for creating or updating a contact
   const createContactMutation = useMutation({
     mutationFn: async (data: z.infer<typeof contactSchema>) => {
-      return apiRequest("POST", "/api/contacts", data);
+      console.log("Creating contact with data:", data);
+      try {
+        const response = await apiRequest("POST", "/api/contacts", data);
+        console.log("Contact creation response:", response);
+        return response;
+      } catch (error) {
+        console.error("Error creating contact:", error);
+        throw error;
+      }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log("Contact created successfully:", data);
       onSuccess();
     },
+    onError: (error) => {
+      console.error("Contact creation mutation error:", error);
+      alert("Failed to create contact. Please check the console for details.");
+    }
   });
 
   const updateContactMutation = useMutation({
     mutationFn: async (data: z.infer<typeof contactSchema>) => {
-      return apiRequest("PUT", `/api/contacts/${contact?.id}`, data);
+      console.log("Updating contact with data:", data);
+      try {
+        const response = await apiRequest("PUT", `/api/contacts/${contact?.id}`, data);
+        console.log("Contact update response:", response);
+        return response;
+      } catch (error) {
+        console.error("Error updating contact:", error);
+        throw error;
+      }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log("Contact updated successfully:", data);
       onSuccess();
     },
+    onError: (error) => {
+      console.error("Contact update mutation error:", error);
+      alert("Failed to update contact. Please check the console for details.");
+    }
   });
 
   // Handle form submission
   const onSubmit = async (data: z.infer<typeof contactSchema>) => {
+    console.log("Form submitted with data:", data);
     if (contact) {
       updateContactMutation.mutate(data);
     } else {

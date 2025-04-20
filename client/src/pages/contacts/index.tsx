@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { 
   Dialog, 
   DialogContent, 
+  DialogDescription,
   DialogHeader, 
   DialogTitle,
   DialogTrigger
@@ -92,6 +93,9 @@ export default function Contacts() {
               <DialogContent className="sm:max-w-[525px]">
                 <DialogHeader>
                   <DialogTitle>Add New Contact</DialogTitle>
+                  <DialogDescription>
+                    Add a new lead or customer to your contacts list.
+                  </DialogDescription>
                 </DialogHeader>
                 <ContactForm 
                   onClose={() => setIsAddOpen(false)} 
@@ -116,7 +120,7 @@ export default function Contacts() {
         <CardContent>
           {isLoading ? (
             <div className="py-20 text-center text-slate-500">Loading contacts...</div>
-          ) : contacts?.length > 0 ? (
+          ) : contacts && contacts.length > 0 ? (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -206,6 +210,9 @@ export default function Contacts() {
         <DialogContent className="sm:max-w-[525px]">
           <DialogHeader>
             <DialogTitle>Edit Contact</DialogTitle>
+            <DialogDescription>
+              Update contact information.
+            </DialogDescription>
           </DialogHeader>
           {selectedContact && (
             <ContactForm 
