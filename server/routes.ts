@@ -9,6 +9,7 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import { hashPassword, comparePasswords } from './utils/auth';
+import { sendTestEmail } from './utils/email';
 import session from 'express-session';
 
 // Extend Express request type to include session
