@@ -15,10 +15,13 @@ export async function apiRequest(
   console.log(`API Request: ${method} ${url}`, data);
   
   try {
+    const cleanedData = data ? cleanupUndefinedValues(data) : undefined;
+    console.log(`Cleaned data for ${method} ${url}:`, cleanedData);
+    
     const res = await fetch(url, {
       method,
-      headers: data ? { "Content-Type": "application/json" } : {},
-      body: data ? JSON.stringify(data) : undefined,
+      headers: cleanedData ? { "Content-Type": "application/json" } : {},
+      body: cleanedData ? JSON.stringify(cleanedData) : undefined,
       credentials: "include",
     });
     
@@ -27,10 +30,23 @@ export async function apiRequest(
       statusText: res.statusText
     });
     
+    // We don't throw here anymore - let the caller decide what to do with non-OK responses
+    // This allows mutation handlers to extract error messages from JSON responses
     if (!res.ok) {
-      const text = await res.text();
-      console.error(`API Error for ${method} ${url}:`, { status: res.status, text });
-      throw new Error(`${res.status}: ${text || res.statusText}`);
+      // Try to parse as JSON first, fall back to text
+      try {
+        const errorData = await res.clone().json();
+        console.error(`API Error for ${method} ${url}:`, { 
+          status: res.status, 
+          data: errorData 
+        });
+      } catch (e) {
+        const text = await res.clone().text();
+        console.error(`API Error for ${method} ${url}:`, { 
+          status: res.status, 
+          text: text || res.statusText 
+        });
+      }
     }
     
     return res;
@@ -38,6 +54,44 @@ export async function apiRequest(
     console.error(`API Request Failed for ${method} ${url}:`, error);
     throw error;
   }
+}
+
+// Helper function to remove undefined values from API request data
+function cleanupUndefinedValues(obj: any): any {
+  // For arrays, filter out undefined values
+  if (Array.isArray(obj)) {
+    return obj.map(cleanupUndefinedValues).filter(item => item !== undefined);
+  }
+  
+  // For objects, recursively clean up properties
+  if (obj && typeof obj === 'object') {
+    const result: Record<string, any> = {};
+    
+    for (const [key, value] of Object.entries(obj)) {
+      // Skip undefined values entirely
+      if (value === undefined) continue;
+      
+      // Handle null values
+      if (value === null) {
+        result[key] = null;
+        continue;
+      }
+      
+      // Recursively clean objects and arrays
+      if (typeof value === 'object') {
+        result[key] = cleanupUndefinedValues(value);
+        continue;
+      }
+      
+      // Keep primitives as is
+      result[key] = value;
+    }
+    
+    return result;
+  }
+  
+  // Return primitives as is
+  return obj;
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";

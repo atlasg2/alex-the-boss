@@ -29,7 +29,7 @@ const contactSchema = z.object({
   email: z.string().email("Invalid email format").optional().or(z.literal("")),
   phone: z.string().optional().or(z.literal("")),
   companyName: z.string().optional().or(z.literal("")),
-  type: z.string().min(1, "Contact type is required"),
+  type: z.string().default("lead"),
 });
 
 interface ContactFormProps {
@@ -57,9 +57,50 @@ export function ContactForm({ contact, onClose, onSuccess }: ContactFormProps) {
     mutationFn: async (data: z.infer<typeof contactSchema>) => {
       console.log("Creating contact with data:", data);
       try {
-        const response = await apiRequest("POST", "/api/contacts", data);
+        // Ensure first name and last name are present
+        if (!data.firstName || !data.lastName) {
+          throw new Error("First and last name are required");
+        }
+        
+        // Ensure all optional fields have default values
+        const contactData = {
+          ...data,
+          companyName: data.companyName || "",
+          email: data.email || "",
+          phone: data.phone || "",
+          type: data.type || "lead",
+        };
+        
+        console.log("Normalized contact data:", contactData);
+        
+        const response = await apiRequest("POST", "/api/contacts", contactData);
         console.log("Contact creation response:", response);
-        return response;
+        
+        if (!response.ok) {
+          // Attempt to parse error message from response
+          try {
+            const errorData = await response.json();
+            console.error("Server error response:", errorData);
+            
+            if (errorData && errorData.message) {
+              throw new Error(errorData.message);
+            } else if (errorData && errorData.errors && Array.isArray(errorData.errors)) {
+              throw new Error(errorData.errors.map((e: any) => e.message || e.path?.join('.')).join(', '));
+            } else {
+              throw new Error(`Server error: ${response.status}`);
+            }
+          } catch (e) {
+            // If we can't parse JSON, just use the status
+            throw new Error(`Server error: ${response.status}`);
+          }
+        }
+        
+        try {
+          return await response.json();
+        } catch (e) {
+          console.error("Error parsing response JSON:", e);
+          throw new Error("Invalid response from server");
+        }
       } catch (error) {
         console.error("Error creating contact:", error);
         throw error;
@@ -71,7 +112,16 @@ export function ContactForm({ contact, onClose, onSuccess }: ContactFormProps) {
     },
     onError: (error) => {
       console.error("Contact creation mutation error:", error);
-      alert("Failed to create contact. Please check the console for details.");
+      
+      let errorMessage = "Failed to create contact. ";
+      
+      if (error instanceof Error) {
+        errorMessage += error.message;
+      } else {
+        errorMessage += "Please check the console for details.";
+      }
+      
+      alert(errorMessage);
     }
   });
 
@@ -79,9 +129,50 @@ export function ContactForm({ contact, onClose, onSuccess }: ContactFormProps) {
     mutationFn: async (data: z.infer<typeof contactSchema>) => {
       console.log("Updating contact with data:", data);
       try {
-        const response = await apiRequest("PUT", `/api/contacts/${contact?.id}`, data);
+        // Ensure required fields
+        if (!data.firstName || !data.lastName) {
+          throw new Error("First and last name are required");
+        }
+        
+        // Ensure all optional fields have default values
+        const contactData = {
+          ...data,
+          companyName: data.companyName || "",
+          email: data.email || "",
+          phone: data.phone || "",
+          type: data.type || "lead",
+        };
+        
+        console.log("Normalized contact data for update:", contactData);
+        
+        const response = await apiRequest("PUT", `/api/contacts/${contact?.id}`, contactData);
         console.log("Contact update response:", response);
-        return response;
+        
+        if (!response.ok) {
+          // Attempt to parse error message from response
+          try {
+            const errorData = await response.json();
+            console.error("Server error response:", errorData);
+            
+            if (errorData && errorData.message) {
+              throw new Error(errorData.message);
+            } else if (errorData && errorData.errors && Array.isArray(errorData.errors)) {
+              throw new Error(errorData.errors.map((e: any) => e.message || e.path?.join('.')).join(', '));
+            } else {
+              throw new Error(`Server error: ${response.status}`);
+            }
+          } catch (e) {
+            // If we can't parse JSON, just use the status
+            throw new Error(`Server error: ${response.status}`);
+          }
+        }
+        
+        try {
+          return await response.json();
+        } catch (e) {
+          console.error("Error parsing response JSON:", e);
+          throw new Error("Invalid response from server");
+        }
       } catch (error) {
         console.error("Error updating contact:", error);
         throw error;
@@ -93,7 +184,16 @@ export function ContactForm({ contact, onClose, onSuccess }: ContactFormProps) {
     },
     onError: (error) => {
       console.error("Contact update mutation error:", error);
-      alert("Failed to update contact. Please check the console for details.");
+      
+      let errorMessage = "Failed to update contact. ";
+      
+      if (error instanceof Error) {
+        errorMessage += error.message;
+      } else {
+        errorMessage += "Please check the console for details.";
+      }
+      
+      alert(errorMessage);
     }
   });
 
