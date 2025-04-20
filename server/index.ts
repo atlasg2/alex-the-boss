@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import session from 'express-session';
 import crypto from 'crypto';
+import createMemoryStore from 'memorystore';
 
 const app = express();
 app.use(express.json());
@@ -12,6 +13,9 @@ app.use(express.urlencoded({ extended: false }));
 // For testing purposes, we'll use a fixed session secret
 const SESSION_SECRET = 'my-super-secret-key-for-development-only';
 
+// Create a memory store for sessions
+const MemoryStore = createMemoryStore(session);
+
 app.use(session({
   secret: process.env.SESSION_SECRET || SESSION_SECRET,
   resave: false,
@@ -19,7 +23,10 @@ app.use(session({
   cookie: { 
     secure: false, // Set to false for development
     maxAge: 7 * 24 * 60 * 60 * 1000 // 1 week
-  }
+  },
+  store: new MemoryStore({
+    checkPeriod: 86400000 // prune expired entries every 24h
+  })
 }));
 
 app.use((req, res, next) => {
