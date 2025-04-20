@@ -80,8 +80,8 @@ export const generatePortalAccess = async (contactId: string) => {
     const data = await response.json();
     return { 
       success: true, 
-      contactId: data.contactId,
-      email: data.email,
+      contactId: data.id || contactId,
+      email: data.email || "",
       password: randomPassword,
       portalUrl: `/portal/login` 
     };

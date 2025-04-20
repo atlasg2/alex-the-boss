@@ -42,12 +42,12 @@ export default function Quotes() {
   const { toast } = useToast();
 
   // Fetch quotes and include contacts for display
-  const { data: quotes, isLoading } = useQuery({
+  const { data: quotes, isLoading } = useQuery<QuoteWithDetails[]>({
     queryKey: ["/api/quotes"],
   });
 
   // Fetch contacts for the form
-  const { data: contacts } = useQuery({
+  const { data: contacts } = useQuery<ContactWithDetail[]>({
     queryKey: ["/api/contacts"],
   });
 
@@ -219,7 +219,7 @@ export default function Quotes() {
         <CardContent>
           {isLoading ? (
             <div className="py-20 text-center text-slate-500">Loading quotes...</div>
-          ) : quotes?.length > 0 ? (
+          ) : quotes && quotes.length > 0 ? (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -291,6 +291,29 @@ export default function Quotes() {
                               </Button>
                             </>
                           )}
+                          
+                          {quote.status === "sent" && (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleAcceptQuote(quote)}
+                                title="Accept Quote"
+                              >
+                                <Check className="h-4 w-4 text-green-500" />
+                                <span className="sr-only">Accept</span>
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => updateQuoteStatusMutation.mutate({ id: quote.id, status: "expired" })}
+                                title="Decline Quote"
+                              >
+                                <X className="h-4 w-4 text-red-500" />
+                                <span className="sr-only">Decline</span>
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -323,6 +346,64 @@ export default function Quotes() {
               }}
             />
           )}
+        </DialogContent>
+      </Dialog>
+      
+      {/* Portal Credentials Dialog */}
+      <Dialog open={isPortalDialogOpen} onOpenChange={setIsPortalDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Client Portal Access Created</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="text-center mb-4">
+              <Check className="h-12 w-12 text-green-500 mx-auto mb-2" />
+              <p className="text-sm text-slate-600">
+                Portal access has been enabled for this client. They can now access their project details.
+              </p>
+            </div>
+            
+            <div className="bg-slate-50 p-4 rounded-md border border-slate-200">
+              <h3 className="font-medium text-slate-800 mb-2">Client Credentials</h3>
+              
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs text-slate-500">Email</label>
+                  <div className="flex items-center mt-1">
+                    <input 
+                      type="text" 
+                      value={portalCredentials?.email || ''} 
+                      className="flex-1 bg-white border border-slate-200 rounded-md px-3 py-2 text-sm"
+                      readOnly
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="text-xs text-slate-500">Password</label>
+                  <div className="flex items-center mt-1">
+                    <input 
+                      type="text" 
+                      value={portalCredentials?.password || ''} 
+                      className="flex-1 bg-white border border-slate-200 rounded-md px-3 py-2 text-sm"
+                      readOnly
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              <p className="text-xs text-slate-500 mt-4">
+                Please provide these credentials to your client securely. They will use them to log in to the client portal.
+              </p>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button onClick={() => setIsPortalDialogOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
