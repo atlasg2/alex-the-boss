@@ -11,22 +11,35 @@ interface QuoteItemFormProps {
 export function QuoteItemForm({ item, onChange }: QuoteItemFormProps) {
   // Calculate the total whenever unitPrice or quantity changes
   useEffect(() => {
-    const total = item.unitPrice * item.quantity;
+    // Ensure we're working with numbers
+    const unitPrice = typeof item.unitPrice === 'number' ? item.unitPrice : parseFloat(item.unitPrice as any) || 0;
+    const quantity = typeof item.quantity === 'number' ? item.quantity : parseFloat(item.quantity as any) || 0;
+    
+    const total = unitPrice * quantity;
+    
+    // Only update if total has changed to avoid infinite loops
     if (total !== item.total) {
-      onChange({ ...item, total });
+      console.log(`Calculating item total: ${unitPrice} * ${quantity} = ${total}`);
+      onChange({ ...item, unitPrice, quantity, total });
     }
   }, [item.unitPrice, item.quantity]);
 
-  // Handle input changes
+  // Handle input changes with better error handling
   const handleChange = (field: keyof QuoteItemWithCalculation, value: string) => {
-    let parsedValue: any = value;
-    
-    // Convert numeric fields to numbers
-    if (field === 'unitPrice' || field === 'quantity' || field === 'sqft') {
-      parsedValue = parseFloat(value) || 0;
+    try {
+      let parsedValue: any = value;
+      
+      // Convert numeric fields to numbers
+      if (field === 'unitPrice' || field === 'quantity' || field === 'sqft') {
+        const numValue = parseFloat(value);
+        parsedValue = isNaN(numValue) ? 0 : numValue;
+      }
+      
+      console.log(`Updating item field '${field}' to:`, parsedValue);
+      onChange({ ...item, [field]: parsedValue });
+    } catch (error) {
+      console.error(`Error updating field '${field}':`, error);
     }
-    
-    onChange({ ...item, [field]: parsedValue });
   };
 
   return (

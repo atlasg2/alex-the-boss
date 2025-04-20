@@ -31,7 +31,11 @@ const quoteSchema = z.object({
   contactId: z.string().min(1, "Client is required"),
   validUntil: z.string().optional(),
   status: z.string().default("draft"),
-  total: z.number().optional(),
+  total: z.union([
+    z.number(),
+    z.string().transform((val) => parseFloat(val) || 0), // Convert string to number with fallback
+    z.undefined().transform(() => 0) // Set undefined to 0
+  ]),
 });
 
 interface QuoteFormProps {
@@ -90,40 +94,68 @@ export function QuoteForm({ quote, contacts, onClose, onSuccess }: QuoteFormProp
   // Setup mutations for creating or updating a quote
   const createQuoteMutation = useMutation({
     mutationFn: async (data: z.infer<typeof quoteSchema>) => {
+      console.log("Creating quote with data:", data);
       const response = await apiRequest("POST", "/api/quotes", data);
-      return response.json();
+      const responseData = await response.json();
+      console.log("Quote created:", responseData);
+      return responseData;
     },
     onSuccess: (data) => {
+      console.log("Quote created successfully:", data);
+      
       // After creating the quote, create each quote item (if any)
       if (quoteItems.length > 0) {
+        console.log("Adding items to new quote:", quoteItems.length);
         Promise.all(
-          quoteItems.map(item => 
-            apiRequest("POST", "/api/quote-items", { 
+          quoteItems.map(item => {
+            console.log("Adding item:", {...item, quoteId: data.id});
+            return apiRequest("POST", "/api/quote-items", { 
               ...item, 
               quoteId: data.id 
-            })
-          )
-        ).then(() => onSuccess());
+            });
+          })
+        )
+        .then(() => {
+          console.log("All quote items saved");
+          onSuccess();
+        })
+        .catch(error => {
+          console.error("Error saving quote items:", error);
+          // Still mark success as the quote was created
+          onSuccess();
+        });
       } else {
         // If no items, still consider it a success
+        console.log("Quote created with no items");
         onSuccess();
       }
     },
+    onError: (error) => {
+      console.error("Error creating quote:", error);
+    }
   });
 
   const updateQuoteMutation = useMutation({
     mutationFn: async (data: z.infer<typeof quoteSchema>) => {
-      await apiRequest("PUT", `/api/quotes/${quote?.id}`, data);
+      console.log("Updating quote with data:", data);
+      const response = await apiRequest("PUT", `/api/quotes/${quote?.id}`, data);
+      console.log("Quote update response:", response.status);
+      return response;
     },
     onSuccess: () => {
+      console.log("Quote updated successfully");
+      
       // Handle existing items: update or delete
       if (quoteItems.length > 0) {
+        console.log("Processing quote items:", quoteItems.length);
         const promises = quoteItems.map(item => {
           if (item.id) {
             // Update existing item
+            console.log("Updating item:", item);
             return apiRequest("PUT", `/api/quote-items/${item.id}`, item);
           } else {
             // Create new item for this quote
+            console.log("Creating new item for existing quote:", {...item, quoteId: quote?.id});
             return apiRequest("POST", "/api/quote-items", { 
               ...item, 
               quoteId: quote?.id 
@@ -132,12 +164,25 @@ export function QuoteForm({ quote, contacts, onClose, onSuccess }: QuoteFormProp
         });
 
         // Execute all promises and notify parent on completion
-        Promise.all(promises).then(() => onSuccess());
+        Promise.all(promises)
+          .then(() => {
+            console.log("All quote items saved/updated");
+            onSuccess();
+          })
+          .catch(error => {
+            console.error("Error saving/updating quote items:", error);
+            // Still mark success as the quote was updated
+            onSuccess();
+          });
       } else {
         // If no items, still consider it a success
+        console.log("Quote updated with no items");
         onSuccess();
       }
     },
+    onError: (error) => {
+      console.error("Error updating quote:", error);
+    }
   });
 
   // Add a new empty quote item
@@ -170,35 +215,45 @@ export function QuoteForm({ quote, contacts, onClose, onSuccess }: QuoteFormProp
 
   // Handle form submission
   const onSubmit = async (data: z.infer<typeof quoteSchema>) => {
-    // Ensure we always have a valid total even if no items added
-    const submissionData = {
-      ...data,
-      total: data.total || 0
-    };
-    
-    if (quote) {
-      updateQuoteMutation.mutate(submissionData);
-    } else {
-      createQuoteMutation.mutate(submissionData);
+    try {
+      console.log("Form submitted with data:", data);
+      console.log("Current total:", total);
+      
+      // Ensure we always have a valid total even if no items added
+      const submissionData = {
+        ...data,
+        total: total || 0, // Use the calculated total from state
+        status: data.status || "draft"
+      };
+      
+      console.log("Prepared submission data:", submissionData);
+      
+      if (quote) {
+        updateQuoteMutation.mutate(submissionData);
+      } else {
+        createQuoteMutation.mutate(submissionData);
+      }
+    } catch (error) {
+      console.error("Error in form submission:", error);
     }
   };
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 overflow-y-auto max-h-[calc(100vh-200px)]">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 overflow-y-auto py-2" style={{ maxHeight: "75vh" }}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FormField
             control={form.control}
             name="contactId"
             render={({ field }) => (
-              <FormItem>
+              <FormItem className="w-full">
                 <FormLabel>Client</FormLabel>
                 <Select 
                   onValueChange={field.onChange} 
                   defaultValue={field.value}
                 >
                   <FormControl>
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select a client" />
                     </SelectTrigger>
                   </FormControl>
@@ -219,10 +274,10 @@ export function QuoteForm({ quote, contacts, onClose, onSuccess }: QuoteFormProp
             control={form.control}
             name="validUntil"
             render={({ field }) => (
-              <FormItem>
+              <FormItem className="w-full">
                 <FormLabel>Valid Until</FormLabel>
                 <FormControl>
-                  <Input type="date" {...field} />
+                  <Input type="date" {...field} className="w-full" />
                 </FormControl>
                 <FormMessage />
               </FormItem>
