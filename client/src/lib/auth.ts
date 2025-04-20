@@ -1,6 +1,6 @@
 import { apiRequest } from "./queryClient";
 
-// Simple auth utilities (placeholder for Supabase in future)
+// Admin auth utilities
 export const login = async (username: string, password: string) => {
   try {
     const response = await apiRequest("POST", "/api/login", { username, password });
@@ -33,28 +33,85 @@ export const getCurrentUser = async () => {
   }
 };
 
-// Placeholder to generate a portal token for a job
-export const generatePortalToken = async (jobId: string) => {
+// CLIENT PORTAL AUTHENTICATION
+export const portalLogin = async (email: string, password: string) => {
   try {
-    const token = `job-${jobId}-${Date.now()}`;
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 30); // 30 days
+    const response = await apiRequest("POST", "/api/portal/login", { email, password });
+    const data = await response.json();
+    return { success: true, data };
+  } catch (error) {
+    console.error("Portal login error:", error);
+    return { success: false, error };
+  }
+};
+
+export const portalLogout = async () => {
+  try {
+    await apiRequest("POST", "/api/portal/logout", {});
+    return { success: true };
+  } catch (error) {
+    console.error("Portal logout error:", error);
+    return { success: false, error };
+  }
+};
+
+export const getCurrentPortalUser = async () => {
+  try {
+    const response = await apiRequest("GET", "/api/portal/me", undefined);
+    const data = await response.json();
+    return { success: true, data };
+  } catch (error) {
+    console.error("Get current portal user error:", error);
+    return { success: false, error: error };
+  }
+};
+
+// Generate portal credentials for a client
+export const generatePortalAccess = async (contactId: string) => {
+  try {
+    // Generate a random password
+    const randomPassword = Math.random().toString(36).slice(-8);
     
-    const response = await apiRequest("POST", "/api/portal/tokens", {
-      jobId,
-      token,
-      expiresAt: expiresAt.toISOString()
+    const response = await apiRequest("POST", "/api/portal/enable", {
+      contactId,
+      password: randomPassword
     });
     
     const data = await response.json();
-    return { success: true, token: data.token, portalUrl: `/portal/${data.token}` };
+    return { 
+      success: true, 
+      contactId: data.contactId,
+      email: data.email,
+      password: randomPassword,
+      portalUrl: `/portal/login` 
+    };
+  } catch (error) {
+    console.error("Generate portal access error:", error);
+    return { success: false, error };
+  }
+};
+
+// Generate a temporary portal token for a job
+export const generatePortalToken = async (jobId: string) => {
+  try {
+    const response = await apiRequest("POST", "/api/portal/tokens", { 
+      jobId,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days from now
+    });
+    
+    const token = await response.json();
+    return { 
+      success: true, 
+      token: token.token,
+      portalUrl: `/portal/${token.token}` 
+    };
   } catch (error) {
     console.error("Generate portal token error:", error);
     return { success: false, error };
   }
 };
 
-// Verify a portal token
+// Legacy token verification - will gradually phase out
 export const verifyPortalToken = async (token: string) => {
   try {
     const response = await apiRequest("GET", `/api/portal/${token}`, undefined);

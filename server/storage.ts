@@ -16,9 +16,15 @@ export interface IStorage {
   // Contacts
   getContacts(): Promise<Contact[]>;
   getContact(id: string): Promise<Contact | undefined>;
+  getContactByEmail(email: string): Promise<Contact | undefined>;
   createContact(contact: InsertContact): Promise<Contact>;
   updateContact(id: string, contact: Partial<InsertContact>): Promise<Contact | undefined>;
   deleteContact(id: string): Promise<boolean>;
+  
+  // Portal Authentication
+  enablePortalAccess(contactId: string, hashedPassword: string): Promise<Contact | undefined>;
+  verifyPortalLogin(email: string, password: string): Promise<Contact | undefined>;
+  updatePortalLastLogin(contactId: string): Promise<boolean>;
 
   // Quotes
   getQuotes(): Promise<Quote[]>;
@@ -143,12 +149,60 @@ export class MemStorage implements IStorage {
   async getContact(id: string): Promise<Contact | undefined> {
     return this.contacts.get(id);
   }
+  
+  async getContactByEmail(email: string): Promise<Contact | undefined> {
+    return Array.from(this.contacts.values()).find(
+      (contact) => contact.email === email
+    );
+  }
 
   async createContact(contact: InsertContact): Promise<Contact> {
     const id = crypto.randomUUID();
-    const newContact: Contact = { ...contact, id, createdAt: new Date() };
+    const newContact: Contact = { 
+      ...contact, 
+      id, 
+      createdAt: new Date(),
+      // Initialize portal fields with defaults if not provided
+      portalEnabled: contact.portalEnabled || false,
+      portalPassword: contact.portalPassword || null,
+      portalLastLogin: null
+    };
     this.contacts.set(id, newContact);
     return newContact;
+  }
+  
+  // Portal Authentication Methods
+  async enablePortalAccess(contactId: string, hashedPassword: string): Promise<Contact | undefined> {
+    const contact = await this.getContact(contactId);
+    if (!contact) return undefined;
+    
+    const updatedContact = { 
+      ...contact, 
+      portalEnabled: true,
+      portalPassword: hashedPassword
+    };
+    
+    this.contacts.set(contactId, updatedContact);
+    return updatedContact;
+  }
+  
+  async verifyPortalLogin(email: string, password: string): Promise<Contact | undefined> {
+    // This is a placeholder - actual password verification happens in the route handler
+    // using the comparePasswords function from utils/auth
+    return this.getContactByEmail(email);
+  }
+  
+  async updatePortalLastLogin(contactId: string): Promise<boolean> {
+    const contact = await this.getContact(contactId);
+    if (!contact) return false;
+    
+    const updatedContact = {
+      ...contact,
+      portalLastLogin: new Date()
+    };
+    
+    this.contacts.set(contactId, updatedContact);
+    return true;
   }
 
   async updateContact(id: string, contact: Partial<InsertContact>): Promise<Contact | undefined> {

@@ -29,6 +29,10 @@ export const contacts = pgTable("contacts", {
   email: text("email").unique(),
   phone: text("phone"),
   type: text("type").notNull().default("lead"),
+  // Portal access fields
+  portalEnabled: boolean("portal_enabled").default(false),
+  portalPassword: text("portal_password"), // Will store hashed password
+  portalLastLogin: timestamp("portal_last_login"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -92,7 +96,7 @@ export const files = pgTable("files", {
   filesize: integer("filesize"),
   mimetype: text("mimetype"),
   label: text("label"),
-  uploadedBy: uuid("uploaded_by").references(() => users.id),
+  uploadedBy: text("uploaded_by"), // Just store the user ID as text to avoid type conflicts
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -113,7 +117,7 @@ export const messages = pgTable("messages", {
 export const notes = pgTable("notes", {
   id: uuid("id").defaultRandom().primaryKey(),
   jobId: uuid("job_id").references(() => jobs.id, { onDelete: "cascade" }),
-  createdBy: uuid("created_by").references(() => users.id),
+  createdBy: text("created_by"), // Just store the user ID as text to avoid type conflicts
   content: text("content").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -144,6 +148,8 @@ export const insertContactSchema = createInsertSchema(contacts).pick({
   email: true,
   phone: true,
   type: true,
+  portalEnabled: true,
+  portalPassword: true,
 });
 
 export const insertQuoteSchema = createInsertSchema(quotes).pick({

@@ -8,6 +8,20 @@ import {
   insertFileSchema, insertMessageSchema, insertNoteSchema, insertPortalTokenSchema
 } from "@shared/schema";
 import { z } from "zod";
+import { hashPassword, comparePasswords } from './utils/auth';
+import session from 'express-session';
+
+// Extend Express request type to include session
+declare module 'express-session' {
+  interface SessionData {
+    portalUser?: {
+      contactId: string;
+      email: string | null;
+      firstName: string | null;
+      lastName: string | null;
+    }
+  }
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Create HTTP server for both Express and WebSocket
@@ -636,6 +650,150 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid portal token data", errors: error.errors });
       }
       res.status(500).json({ message: "Failed to create portal token" });
+    }
+  });
+
+  // Portal Authentication endpoints
+  app.post("/api/portal/enable", async (req: Request, res: Response) => {
+    try {
+      const { contactId, password } = req.body;
+      
+      if (!contactId || !password) {
+        return res.status(400).json({ message: "Contact ID and password are required" });
+      }
+      
+      const contact = await storage.getContact(contactId);
+      if (!contact) {
+        return res.status(404).json({ message: "Contact not found" });
+      }
+      
+      // Hash the password before storing
+      const hashedPassword = await hashPassword(password);
+      
+      // Enable portal access for this contact
+      const updatedContact = await storage.enablePortalAccess(contactId, hashedPassword);
+      
+      if (!updatedContact) {
+        return res.status(500).json({ message: "Failed to enable portal access" });
+      }
+      
+      // Never return the hashed password to the client
+      const { portalPassword, ...contactWithoutPassword } = updatedContact;
+      
+      res.status(200).json(contactWithoutPassword);
+    } catch (error) {
+      console.error("Portal enable error:", error);
+      res.status(500).json({ message: "Failed to enable portal access" });
+    }
+  });
+
+  app.post("/api/portal/login", async (req: Request, res: Response) => {
+    try {
+      const { email, password } = req.body;
+      
+      if (!email || !password) {
+        return res.status(400).json({ message: "Email and password are required" });
+      }
+      
+      // Get contact by email
+      const contact = await storage.getContactByEmail(email);
+      
+      if (!contact || !contact.portalEnabled || !contact.portalPassword) {
+        return res.status(401).json({ message: "Invalid credentials or portal access not enabled" });
+      }
+      
+      // Verify password
+      const passwordValid = await comparePasswords(password, contact.portalPassword);
+      
+      if (!passwordValid) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+      
+      // Update last login timestamp
+      await storage.updatePortalLastLogin(contact.id);
+      
+      // Create session for the portal user
+      if (req.session) {
+        req.session.portalUser = {
+          contactId: contact.id,
+          email: contact.email,
+          firstName: contact.firstName,
+          lastName: contact.lastName
+        };
+      }
+      
+      // Never return the hashed password to the client
+      const { portalPassword, ...contactWithoutPassword } = contact;
+      
+      res.status(200).json(contactWithoutPassword);
+    } catch (error) {
+      console.error("Portal login error:", error);
+      res.status(500).json({ message: "Failed to login to portal" });
+    }
+  });
+
+  app.post("/api/portal/logout", (req: Request, res: Response) => {
+    if (req.session) {
+      delete req.session.portalUser;
+      res.status(200).json({ message: "Successfully logged out" });
+    } else {
+      res.status(400).json({ message: "No active session" });
+    }
+  });
+
+  app.get("/api/portal/me", (req: Request, res: Response) => {
+    if (req.session?.portalUser) {
+      res.status(200).json(req.session.portalUser);
+    } else {
+      res.status(401).json({ message: "Not authenticated" });
+    }
+  });
+  
+  // Get all jobs for the currently logged in portal user
+  app.get("/api/portal/jobs", async (req: Request, res: Response) => {
+    try {
+      if (!req.session?.portalUser?.contactId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      
+      const contactId = req.session.portalUser.contactId;
+      
+      // Get all quotes for this contact
+      const quotes = await storage.getQuotesByContact(contactId);
+      
+      if (!quotes || quotes.length === 0) {
+        return res.status(404).json({ message: "No quotes found" });
+      }
+      
+      // Get all contracts from these quotes
+      const contracts = await Promise.all(
+        quotes.map(async (quote) => {
+          return await storage.getContractByQuote(quote.id);
+        })
+      );
+      
+      const validContracts = contracts.filter(c => c !== undefined);
+      
+      if (validContracts.length === 0) {
+        return res.status(404).json({ message: "No contracts found" });
+      }
+      
+      // Get all jobs from these contracts
+      const jobs = await Promise.all(
+        validContracts.map(async (contract) => {
+          if (contract) {
+            return await storage.getJobByContract(contract.id);
+          }
+          return undefined;
+        })
+      );
+      
+      const validJobs = jobs.filter(j => j !== undefined);
+      
+      res.status(200).json(validJobs);
+    } catch (error) {
+      console.error("Get portal jobs error:", error);
+      res.status(500).json({ message: "Failed to get jobs" });
     }
   });
 
