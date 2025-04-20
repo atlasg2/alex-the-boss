@@ -9,12 +9,15 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
 // Set up session handling for portal authentication
+// For testing purposes, we'll use a fixed session secret
+const SESSION_SECRET = 'my-super-secret-key-for-development-only';
+
 app.use(session({
-  secret: process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex'),
+  secret: process.env.SESSION_SECRET || SESSION_SECRET,
   resave: false,
-  saveUninitialized: false,
+  saveUninitialized: true, // Changed to true to ensure session is always created
   cookie: { 
-    secure: process.env.NODE_ENV === 'production', 
+    secure: false, // Set to false for development
     maxAge: 7 * 24 * 60 * 60 * 1000 // 1 week
   }
 }));

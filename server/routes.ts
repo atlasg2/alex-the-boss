@@ -742,6 +742,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/portal/me", (req: Request, res: Response) => {
+    console.log("Session data:", req.session);
     if (req.session?.portalUser) {
       res.status(200).json(req.session.portalUser);
     } else {
