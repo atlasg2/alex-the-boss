@@ -19,7 +19,8 @@ declare module 'express-session' {
       email: string | null;
       firstName: string | null;
       lastName: string | null;
-    }
+    },
+    testCounter?: number;
   }
 }
 
@@ -756,12 +757,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/portal/me", (req: Request, res: Response) => {
-    console.log("Session data:", req.session);
+    console.log("GET /api/portal/me - Session data:", req.session);
     if (req.session?.portalUser) {
       res.status(200).json(req.session.portalUser);
     } else {
       res.status(401).json({ message: "Not authenticated" });
     }
+  });
+  
+  // Test route for debugging session management
+  // Debug route - not protected by portal token
+  app.get("/api/session-test", (req: Request, res: Response) => {
+    console.log("GET /api/session-test - Session data:", req.session);
+    console.log("Session ID:", req.sessionID);
+    console.log("Cookies:", req.headers.cookie);
+    
+    if (!req.session) {
+      return res.status(500).json({ message: "No session object available" });
+    }
+    
+    if (!req.session.testCounter) {
+      req.session.testCounter = 1;
+    } else {
+      req.session.testCounter++;
+    }
+    
+    req.session.save((err) => {
+      if (err) {
+        console.error("Failed to save session:", err);
+        return res.status(500).json({ message: "Session save error" });
+      }
+      
+      res.status(200).json({ 
+        message: "Session test", 
+        counter: req.session.testCounter,
+        sessionID: req.sessionID,
+        hasPortalUser: !!req.session.portalUser
+      });
+    });
   });
   
   // Get all jobs for the currently logged in portal user
