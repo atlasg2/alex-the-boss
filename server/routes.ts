@@ -5,7 +5,8 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { 
   insertContactSchema, insertQuoteSchema, insertQuoteItemSchema, 
   insertContractSchema, insertInvoiceSchema, insertJobSchema,
-  insertFileSchema, insertMessageSchema, insertNoteSchema, insertPortalTokenSchema
+  insertFileSchema, insertMessageSchema, insertNoteSchema, insertPortalTokenSchema,
+  InsertContact
 } from "@shared/schema";
 import { z } from "zod";
 import { hashPassword, comparePasswords } from './utils/auth';
@@ -973,6 +974,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         hasPortalUser: !!req.session.portalUser
       });
     });
+  });
+  
+  // Test email route
+  app.post("/api/send-test-email", async (req: Request, res: Response) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ message: "Email address is required" });
+      }
+      
+      console.log(`Attempting to send test email to: ${email}`);
+      const success = await sendTestEmail(email);
+      
+      if (success) {
+        res.json({ message: `Test email sent to ${email}` });
+      } else {
+        res.status(500).json({ message: "Failed to send test email" });
+      }
+    } catch (error) {
+      console.error("Error sending test email:", error);
+      res.status(500).json({ 
+        message: "Error sending test email",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
   });
   
   // Create test data

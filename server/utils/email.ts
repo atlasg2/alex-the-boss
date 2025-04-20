@@ -17,17 +17,25 @@ export interface EmailParams {
 
 export async function sendEmail(params: EmailParams): Promise<boolean> {
   try {
-    await mailService.send({
+    console.log(`Sending email from ${params.from} to ${params.to}...`);
+    
+    const response = await mailService.send({
       to: params.to,
       from: params.from,
       subject: params.subject,
       text: params.text,
       html: params.html,
     });
+    
     console.log(`Email sent successfully to ${params.to}`);
+    console.log('SendGrid response:', JSON.stringify(response));
     return true;
   } catch (error) {
     console.error('SendGrid email error:', error);
+    if (error && typeof error === 'object' && 'response' in error) {
+      const errorObj = error as any;
+      console.error('SendGrid error details:', JSON.stringify(errorObj.response?.body, null, 2));
+    }
     return false;
   }
 }
@@ -37,7 +45,7 @@ export async function sendTestEmail(to: string): Promise<boolean> {
   const currentDate = new Date().toLocaleString();
   return sendEmail({
     to,
-    from: 'info@contractorflow.com', // Replace with your verified sender
+    from: 'nicksanford2341@gmail.com', // Using your email as the verified sender
     subject: 'Test Email from ContractorFlow',
     text: `This is a test email from ContractorFlow. Sent at: ${currentDate}`,
     html: `
