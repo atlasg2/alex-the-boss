@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -92,6 +93,8 @@ export function QuoteForm({ quote, contacts, onClose, onSuccess }: QuoteFormProp
   };
 
   // Setup mutations for creating or updating a quote
+  const toast = useToast();
+  
   const createQuoteMutation = useMutation({
     mutationFn: async (data: z.infer<typeof quoteSchema>) => {
       console.log("Creating quote with data:", data);
@@ -109,6 +112,13 @@ export function QuoteForm({ quote, contacts, onClose, onSuccess }: QuoteFormProp
     },
     onSuccess: (data) => {
       console.log("Quote created successfully:", data);
+      
+      // Show success message
+      toast.toast({
+        title: "Quote Created",
+        description: "Your quote has been created successfully.",
+        variant: "default",
+      });
       
       // Forcefully invalidate the quotes cache to ensure refresh
       queryClient.invalidateQueries({ queryKey: ["/api/quotes"] });
@@ -145,6 +155,12 @@ export function QuoteForm({ quote, contacts, onClose, onSuccess }: QuoteFormProp
     },
     onError: (error) => {
       console.error("Error creating quote:", error);
+      
+      toast.toast({
+        title: "Error Creating Quote",
+        description: "There was a problem creating your quote. Please try again.",
+        variant: "destructive",
+      });
     }
   });
 
@@ -231,12 +247,11 @@ export function QuoteForm({ quote, contacts, onClose, onSuccess }: QuoteFormProp
     try {
       console.log("Form submitted with data:", data);
       console.log("Current total:", total);
-      console.log("Form validation state:", form.formState);
       console.log("Form errors:", form.formState.errors);
       
-      // Check if form is valid
-      if (!form.formState.isValid) {
-        console.error("Form is invalid. Validation errors:", form.formState.errors);
+      // Check if there are any form errors
+      if (Object.keys(form.formState.errors).length > 0) {
+        console.error("Form has validation errors:", form.formState.errors);
         return;
       }
       
