@@ -141,16 +141,26 @@ export const insertUserSchema = createInsertSchema(users).pick({
   role: true,
 });
 
-export const insertContactSchema = createInsertSchema(contacts).pick({
-  companyName: true,
-  firstName: true,
-  lastName: true,
-  email: true,
-  phone: true,
-  type: true,
-  portalEnabled: true,
-  portalPassword: true,
-});
+export const insertContactSchema = createInsertSchema(contacts)
+  .pick({
+    companyName: true,
+    firstName: true,
+    lastName: true,
+    email: true,
+    phone: true,
+    type: true,
+    portalEnabled: true,
+    portalPassword: true,
+  })
+  .extend({
+    // Make optional fields more forgiving
+    companyName: z.string().optional(),
+    email: z.string().email("Invalid email address").optional(),
+    phone: z.string().optional(),
+    type: z.string().default("lead"),
+    portalEnabled: z.boolean().default(false).optional(),
+    portalPassword: z.string().optional(),
+  });
 
 export const insertQuoteSchema = createInsertSchema(quotes)
   .pick({

@@ -104,7 +104,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log("Contact creation request received:", req.body);
       
-      const contactData = insertContactSchema.parse(req.body);
+      // Ensure required fields are present
+      if (!req.body.firstName || !req.body.lastName) {
+        return res.status(400).json({ 
+          message: "Invalid contact data", 
+          errors: [{ path: ["firstName", "lastName"], message: "First name and last name are required" }] 
+        });
+      }
+      
+      // Set defaults for optional fields
+      const contactRequest = {
+        ...req.body,
+        companyName: req.body.companyName || "",
+        email: req.body.email || "",
+        phone: req.body.phone || "",
+        type: req.body.type || "lead",
+        portalEnabled: req.body.portalEnabled || false,
+      };
+      
+      console.log("Normalized contact request:", contactRequest);
+      
+      const contactData = insertContactSchema.parse(contactRequest);
       console.log("Contact data passed validation:", contactData);
       
       const contact = await storage.createContact(contactData);
@@ -116,10 +136,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (error instanceof z.ZodError) {
         console.error("Validation error details:", error.errors);
-        return res.status(400).json({ message: "Invalid contact data", errors: error.errors });
+        return res.status(400).json({ 
+          message: "Invalid contact data", 
+          errors: error.errors,
+          receivedData: req.body
+        });
       }
       
-      res.status(500).json({ message: "Failed to create contact" });
+      // Unique constraint error (e.g., duplicate email)
+      if (error && typeof error === 'object' && 'code' in error && error.code === '23505') {
+        return res.status(409).json({ 
+          message: "A contact with this email already exists",
+          detail: 'detail' in error ? error.detail : 'Duplicate key violation'
+        });
+      }
+      
+      res.status(500).json({ 
+        message: "Failed to create contact",
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   });
   
