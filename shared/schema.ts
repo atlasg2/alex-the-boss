@@ -40,7 +40,7 @@ export const contacts = pgTable("contacts", {
 export const quotes = pgTable("quotes", {
   id: uuid("id").defaultRandom().primaryKey(),
   contactId: uuid("contact_id").notNull().references(() => contacts.id, { onDelete: "cascade" }),
-  total: numeric("total"),
+  total: numeric("total").default("0").notNull(),
   status: text("status").notNull().default("draft"),
   validUntil: timestamp("valid_until"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -152,12 +152,17 @@ export const insertContactSchema = createInsertSchema(contacts).pick({
   portalPassword: true,
 });
 
-export const insertQuoteSchema = createInsertSchema(quotes).pick({
-  contactId: true,
-  total: true,
-  status: true,
-  validUntil: true,
-});
+export const insertQuoteSchema = createInsertSchema(quotes)
+  .pick({
+    contactId: true,
+    total: true,
+    status: true,
+    validUntil: true,
+  })
+  .extend({
+    total: z.union([z.string(), z.number()]).optional().transform(val => val || "0"),
+    status: z.string().default("draft")
+  });
 
 export const insertQuoteItemSchema = createInsertSchema(quoteItems).pick({
   quoteId: true,

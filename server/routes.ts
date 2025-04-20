@@ -184,30 +184,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.post("/api/quotes", async (req: Request, res: Response) => {
     try {
+      console.log("Creating quote with data:", req.body);
+      
+      // Make sure we have a valid total even if not provided
+      if (!req.body.total) {
+        req.body.total = "0";
+      }
+      
+      // Ensure status is always valid
+      if (!req.body.status) {
+        req.body.status = "draft";
+      }
+      
       const quoteData = insertQuoteSchema.parse(req.body);
+      console.log("Parsed quote data:", quoteData);
+      
       const quote = await storage.createQuote(quoteData);
+      console.log("Quote created successfully:", quote);
+      
       res.status(201).json(quote);
     } catch (error) {
+      console.error("Error creating quote:", error);
+      
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid quote data", errors: error.errors });
+        return res.status(400).json({ 
+          message: "Invalid quote data", 
+          errors: error.errors,
+          receivedData: req.body
+        });
       }
-      res.status(500).json({ message: "Failed to create quote" });
+      
+      res.status(500).json({ 
+        message: "Failed to create quote",
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   });
   
   app.put("/api/quotes/:id", async (req: Request, res: Response) => {
     try {
+      console.log("Updating quote with ID:", req.params.id, "Data:", req.body);
+      
+      // Make sure we have proper defaults
+      if (req.body.total === undefined || req.body.total === null) {
+        req.body.total = "0";
+      }
+      
+      // Ensure status is valid if provided
+      if (req.body.status === undefined || req.body.status === null) {
+        req.body.status = "draft";
+      }
+      
       const quoteData = insertQuoteSchema.partial().parse(req.body);
+      console.log("Parsed quote update data:", quoteData);
+      
       const quote = await storage.updateQuote(req.params.id, quoteData);
       if (!quote) {
         return res.status(404).json({ message: "Quote not found" });
       }
+      
+      console.log("Quote updated successfully:", quote);
       res.json(quote);
     } catch (error) {
+      console.error("Error updating quote:", error);
+      
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid quote data", errors: error.errors });
+        return res.status(400).json({ 
+          message: "Invalid quote data", 
+          errors: error.errors,
+          receivedData: req.body
+        });
       }
-      res.status(500).json({ message: "Failed to update quote" });
+      
+      res.status(500).json({ 
+        message: "Failed to update quote",
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   });
   
