@@ -231,6 +231,14 @@ export function QuoteForm({ quote, contacts, onClose, onSuccess }: QuoteFormProp
     try {
       console.log("Form submitted with data:", data);
       console.log("Current total:", total);
+      console.log("Form validation state:", form.formState);
+      console.log("Form errors:", form.formState.errors);
+      
+      // Check if form is valid
+      if (!form.formState.isValid) {
+        console.error("Form is invalid. Validation errors:", form.formState.errors);
+        return;
+      }
       
       // Ensure we always have a valid total even if no items added
       const submissionData = {
@@ -242,8 +250,10 @@ export function QuoteForm({ quote, contacts, onClose, onSuccess }: QuoteFormProp
       console.log("Prepared submission data:", submissionData);
       
       if (quote) {
+        console.log("Updating existing quote");
         updateQuoteMutation.mutate(submissionData);
       } else {
+        console.log("Creating new quote");
         createQuoteMutation.mutate(submissionData);
       }
     } catch (error) {
