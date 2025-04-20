@@ -21,19 +21,25 @@ import {
   DialogContent, 
   DialogHeader, 
   DialogTitle,
+  DialogFooter,
   DialogTrigger
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, FileText, Trash2, Send, Download } from "lucide-react";
+import { Plus, FileText, Trash2, Send, Download, Check, X } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { QuoteForm } from "@/components/quotes/QuoteForm";
 import { generateQuotePDF, downloadPDF } from "@/lib/pdf-utils";
+import { generatePortalAccess } from "@/lib/auth";
+import { useToast } from "@/hooks/use-toast";
 import { QuoteWithDetails, ContactWithDetail } from "@/lib/types";
 
 export default function Quotes() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isPortalDialogOpen, setIsPortalDialogOpen] = useState(false);
+  const [portalCredentials, setPortalCredentials] = useState<{email: string, password: string} | null>(null);
   const [selectedQuote, setSelectedQuote] = useState<QuoteWithDetails | null>(null);
+  const { toast } = useToast();
 
   // Fetch quotes and include contacts for display
   const { data: quotes, isLoading } = useQuery({
@@ -55,13 +61,22 @@ export default function Quotes() {
     },
   });
 
-  // Handle quote update (status change to "sent")
+  // Handle quote update (status change)
   const updateQuoteStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      await apiRequest("PUT", `/api/quotes/${id}`, { status });
+      const response = await apiRequest("PUT", `/api/quotes/${id}`, { status });
+      return { id, status, response };
     },
-    onSuccess: () => {
+    onSuccess: async (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/quotes"] });
+      
+      // If quote was accepted, enable portal access for the contact
+      if (data.status === "accepted") {
+        const quote = quotes?.find((q: QuoteWithDetails) => q.id === data.id);
+        if (quote) {
+          await enablePortalAccess(quote);
+        }
+      }
     },
   });
 
@@ -81,10 +96,55 @@ export default function Quotes() {
     updateQuoteStatusMutation.mutate({ id: quote.id, status: "sent" });
   };
 
-  const handleGeneratePDF = async (quote: QuoteWithDetails) => {
+  // Enable portal access for a contact
+  const enablePortalAccess = async (quote: QuoteWithDetails) => {
     if (!contacts) return;
     
     const contact = contacts.find((c: ContactWithDetail) => c.id === quote.contactId);
+    if (!contact) return;
+    
+    try {
+      // Generate portal credentials
+      const result = await generatePortalAccess(contact.id);
+      
+      if (result.success) {
+        // Show portal credentials dialog
+        setPortalCredentials({
+          email: result.email,
+          password: result.password
+        });
+        setIsPortalDialogOpen(true);
+        
+        toast({
+          title: "Portal access enabled",
+          description: `Portal access has been enabled for ${contact.firstName} ${contact.lastName}`,
+        });
+      } else {
+        toast({
+          title: "Error enabling portal access",
+          description: "There was a problem enabling portal access for this client",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Portal access error:", error);
+      toast({
+        title: "Error enabling portal access",
+        description: "There was a problem enabling portal access for this client",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Handle status change to accepted
+  const handleAcceptQuote = (quote: QuoteWithDetails) => {
+    updateQuoteStatusMutation.mutate({ id: quote.id, status: "accepted" });
+  };
+
+  const handleGeneratePDF = async (quote: QuoteWithDetails) => {
+    if (!contacts) return;
+    
+    const contact = contacts?.find((c: ContactWithDetail) => c.id === quote.contactId);
     if (!contact) return;
     
     // Get quote items
