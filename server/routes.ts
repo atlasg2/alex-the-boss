@@ -864,20 +864,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 async function createTestData() {
   try {
-    // Create test contact
-    const contact = await storage.createContact({
-      companyName: "Home Sweet Home",
-      firstName: "John",
-      lastName: "Smith",
-      email: "john.smith@example.com",
-      phone: "555-123-4567",
-      type: "customer"
-    });
+    // Check if test contact already exists
+    let contact = await storage.getContactByEmail("john.smith@example.com");
+    
+    // Create test contact if it doesn't exist
+    if (!contact) {
+      console.log("Creating test contact...");
+      contact = await storage.createContact({
+        companyName: "Home Sweet Home",
+        firstName: "John",
+        lastName: "Smith",
+        email: "john.smith@example.com",
+        phone: "555-123-4567",
+        type: "customer"
+      });
+    } else {
+      console.log("Test contact already exists, skipping creation");
+    }
 
-    // Create test quote
-    const quote = await storage.createQuote({
-      contactId: contact.id,
-      total: "24500",
+    // Check if test quote already exists
+    const existingQuotes = await storage.getQuotesByContact(contact.id);
+    
+    // Create test quote if none exists for this contact
+    if (!existingQuotes || existingQuotes.length === 0) {
+      console.log("Creating test quote...");
+      const quote = await storage.createQuote({
+        contactId: contact.id,
+        total: "24500",
       status: "accepted",
       validUntil: new Date(new Date().setDate(new Date().getDate() + 30))
     });
@@ -1058,6 +1071,9 @@ async function createTestData() {
         status: "draft",
         validUntil: new Date(new Date().setDate(new Date().getDate() + 30))
       });
+    }
+    } else {
+      console.log("Test quote already exists, skipping creation");
     }
 
   } catch (error) {

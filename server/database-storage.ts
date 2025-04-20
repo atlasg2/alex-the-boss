@@ -49,6 +49,40 @@ export class DatabaseStorage implements IStorage {
       .returning();
     return updatedContact;
   }
+  
+  async getContactByEmail(email: string): Promise<Contact | undefined> {
+    const [contact] = await db.select().from(schema.contacts).where(eq(schema.contacts.email, email));
+    return contact;
+  }
+  
+  async enablePortalAccess(contactId: string, hashedPassword: string): Promise<Contact | undefined> {
+    const [updatedContact] = await db
+      .update(schema.contacts)
+      .set({ 
+        portalEnabled: true,
+        portalPassword: hashedPassword
+      })
+      .where(eq(schema.contacts.id, contactId))
+      .returning();
+    return updatedContact;
+  }
+  
+  async verifyPortalLogin(email: string, password: string): Promise<Contact | undefined> {
+    const contact = await this.getContactByEmail(email);
+    if (!contact || !contact.portalEnabled || contact.portalPassword !== password) {
+      return undefined;
+    }
+    return contact;
+  }
+  
+  async updatePortalLastLogin(contactId: string): Promise<boolean> {
+    const [updated] = await db
+      .update(schema.contacts)
+      .set({ portalLastLogin: new Date() })
+      .where(eq(schema.contacts.id, contactId))
+      .returning();
+    return !!updated;
+  }
 
   async deleteContact(id: string): Promise<boolean> {
     await db.delete(schema.contacts).where(eq(schema.contacts.id, id));
