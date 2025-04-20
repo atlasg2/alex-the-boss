@@ -35,7 +35,7 @@ export default function Contacts() {
   const [selectedContact, setSelectedContact] = useState<ContactWithDetail | null>(null);
 
   // Fetch contacts
-  const { data: contacts, isLoading } = useQuery({
+  const { data: contacts, isLoading } = useQuery<ContactWithDetail[]>({
     queryKey: ["/api/contacts"],
   });
 
