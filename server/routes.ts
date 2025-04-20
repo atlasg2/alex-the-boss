@@ -585,7 +585,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Portal API
+  // Portal API for session-based authentication
+  app.get("/api/portal/me", (req: Request, res: Response) => {
+    console.log("GET /api/portal/me - Session data:", req.session);
+    if (req.session?.portalUser) {
+      res.status(200).json(req.session.portalUser);
+    } else {
+      res.status(401).json({ message: "Not authenticated" });
+    }
+  });
+  
+  // Portal API for token-based access
   app.get("/api/portal/:token", async (req: Request, res: Response) => {
     try {
       const portalToken = await storage.getPortalToken(req.params.token);
@@ -756,15 +766,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/portal/me", (req: Request, res: Response) => {
-    console.log("GET /api/portal/me - Session data:", req.session);
-    if (req.session?.portalUser) {
-      res.status(200).json(req.session.portalUser);
-    } else {
-      res.status(401).json({ message: "Not authenticated" });
-    }
-  });
-  
   // Test route for debugging session management
   // Debug route - not protected by portal token
   app.get("/api/session-test", (req: Request, res: Response) => {
