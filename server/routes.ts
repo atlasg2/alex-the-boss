@@ -595,6 +595,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Get all jobs for the currently logged in portal user
+  app.get("/api/portal/jobs", async (req: Request, res: Response) => {
+    try {
+      if (!req.session?.portalUser?.contactId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      
+      const contactId = req.session.portalUser.contactId;
+      
+      // Get all quotes for this contact
+      const quotes = await storage.getQuotesByContact(contactId);
+      
+      if (!quotes || quotes.length === 0) {
+        return res.status(404).json({ message: "No quotes found" });
+      }
+      
+      // Get all contracts from these quotes
+      const contracts = await Promise.all(
+        quotes.map(async (quote) => {
+          return await storage.getContractByQuote(quote.id);
+        })
+      );
+      
+      const validContracts = contracts.filter(c => c !== undefined);
+      
+      if (validContracts.length === 0) {
+        return res.status(404).json({ message: "No contracts found" });
+      }
+      
+      // Get all jobs from these contracts
+      const jobs = await Promise.all(
+        validContracts.map(async (contract) => {
+          if (contract) {
+            return await storage.getJobByContract(contract.id);
+          }
+          return undefined;
+        })
+      );
+      
+      const validJobs = jobs.filter(j => j !== undefined);
+      
+      res.status(200).json(validJobs);
+    } catch (error) {
+      console.error("Get portal jobs error:", error);
+      res.status(500).json({ message: "Failed to get jobs" });
+    }
+  });
+  
   // Portal API for token-based access
   app.get("/api/portal/:token", async (req: Request, res: Response) => {
     try {
@@ -798,54 +846,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
   
-  // Get all jobs for the currently logged in portal user
-  app.get("/api/portal/jobs", async (req: Request, res: Response) => {
-    try {
-      if (!req.session?.portalUser?.contactId) {
-        return res.status(401).json({ message: "Not authenticated" });
-      }
-      
-      const contactId = req.session.portalUser.contactId;
-      
-      // Get all quotes for this contact
-      const quotes = await storage.getQuotesByContact(contactId);
-      
-      if (!quotes || quotes.length === 0) {
-        return res.status(404).json({ message: "No quotes found" });
-      }
-      
-      // Get all contracts from these quotes
-      const contracts = await Promise.all(
-        quotes.map(async (quote) => {
-          return await storage.getContractByQuote(quote.id);
-        })
-      );
-      
-      const validContracts = contracts.filter(c => c !== undefined);
-      
-      if (validContracts.length === 0) {
-        return res.status(404).json({ message: "No contracts found" });
-      }
-      
-      // Get all jobs from these contracts
-      const jobs = await Promise.all(
-        validContracts.map(async (contract) => {
-          if (contract) {
-            return await storage.getJobByContract(contract.id);
-          }
-          return undefined;
-        })
-      );
-      
-      const validJobs = jobs.filter(j => j !== undefined);
-      
-      res.status(200).json(validJobs);
-    } catch (error) {
-      console.error("Get portal jobs error:", error);
-      res.status(500).json({ message: "Failed to get jobs" });
-    }
-  });
-
   // Create test data
   await createTestData();
 
