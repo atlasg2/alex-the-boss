@@ -37,8 +37,29 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createContact(contact: InsertContact): Promise<Contact> {
-    const [newContact] = await db.insert(schema.contacts).values(contact).returning();
-    return newContact;
+    console.log("DATABASE: Creating contact with data:", contact);
+    try {
+      // Ensure all fields exist, even if empty
+      const cleanData = {
+        firstName: contact.firstName || '',
+        lastName: contact.lastName || '',
+        companyName: contact.companyName || '',
+        email: contact.email || '',
+        phone: contact.phone || '',
+        type: contact.type || 'lead',
+        portalEnabled: false,
+        portalPassword: null
+      };
+      
+      console.log("DATABASE: Cleaned contact data:", cleanData);
+      
+      const [newContact] = await db.insert(schema.contacts).values(cleanData).returning();
+      console.log("DATABASE: Contact created successfully:", newContact);
+      return newContact;
+    } catch (error) {
+      console.error("DATABASE ERROR creating contact:", error);
+      throw error;
+    }
   }
 
   async updateContact(id: string, contact: Partial<InsertContact>): Promise<Contact | undefined> {

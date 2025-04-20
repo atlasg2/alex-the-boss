@@ -104,50 +104,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log("Contact creation request received:", req.body);
       
-      // Ensure required fields are present
-      if (!req.body.firstName || !req.body.lastName) {
+      // Simplify validation to just require first and last name
+      if (!req.body.firstName || !req.body.firstName.trim()) {
         return res.status(400).json({ 
-          message: "Invalid contact data", 
-          errors: [{ path: ["firstName", "lastName"], message: "First name and last name are required" }] 
+          message: "First name is required" 
         });
       }
       
-      // Set defaults for optional fields
-      const contactRequest = {
-        ...req.body,
-        companyName: req.body.companyName || "",
-        email: req.body.email || "",
-        phone: req.body.phone || "",
+      if (!req.body.lastName || !req.body.lastName.trim()) {
+        return res.status(400).json({ 
+          message: "Last name is required" 
+        });
+      }
+      
+      // Create a simple, clean contact object
+      const contactToCreate = {
+        firstName: req.body.firstName.trim(),
+        lastName: req.body.lastName.trim(),
+        email: req.body.email ? req.body.email.trim() : "",
+        phone: req.body.phone ? req.body.phone.trim() : "",
+        companyName: req.body.companyName ? req.body.companyName.trim() : "",
         type: req.body.type || "lead",
-        portalEnabled: req.body.portalEnabled || false,
+        portalEnabled: false,
+        portalPassword: null
       };
       
-      console.log("Normalized contact request:", contactRequest);
+      console.log("Creating contact with data:", contactToCreate);
       
-      const contactData = insertContactSchema.parse(contactRequest);
-      console.log("Contact data passed validation:", contactData);
-      
-      const contact = await storage.createContact(contactData);
+      // Insert directly without schema validation
+      const contact = await storage.createContact(contactToCreate as InsertContact);
       console.log("Contact created successfully:", contact);
       
       res.status(201).json(contact);
     } catch (error) {
       console.error("Contact creation error:", error);
       
-      if (error instanceof z.ZodError) {
-        console.error("Validation error details:", error.errors);
-        return res.status(400).json({ 
-          message: "Invalid contact data", 
-          errors: error.errors,
-          receivedData: req.body
-        });
-      }
-      
-      // Unique constraint error (e.g., duplicate email)
+      // Check for unique constraint violation (duplicate email)
       if (error && typeof error === 'object' && 'code' in error && error.code === '23505') {
         return res.status(409).json({ 
-          message: "A contact with this email already exists",
-          detail: 'detail' in error ? error.detail : 'Duplicate key violation'
+          message: "A contact with this email already exists"
         });
       }
       

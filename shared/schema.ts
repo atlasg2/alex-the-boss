@@ -154,12 +154,17 @@ export const insertContactSchema = createInsertSchema(contacts)
   })
   .extend({
     // Make optional fields more forgiving
-    companyName: z.string().optional(),
-    email: z.string().email("Invalid email address").optional(),
-    phone: z.string().optional(),
+    companyName: z.string().optional().nullable().transform(v => v || ""),
+    email: z.union([
+      z.string().email("Invalid email address"),
+      z.string().length(0), // Allow empty string
+      z.literal(""),
+      z.null()
+    ]).optional().transform(v => v || ""),
+    phone: z.string().optional().nullable().transform(v => v || ""),
     type: z.string().default("lead"),
     portalEnabled: z.boolean().default(false).optional(),
-    portalPassword: z.string().optional(),
+    portalPassword: z.string().optional().nullable(),
   });
 
 export const insertQuoteSchema = createInsertSchema(quotes)

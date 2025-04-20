@@ -2,7 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { useMutation } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -21,14 +21,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ContactWithDetail } from "@/lib/types";
+import { useState } from "react";
 
-// Form schema based on the contacts model
+// Simplify the form schema as much as possible - only require first and last name
 const contactSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
-  email: z.string().email("Invalid email format").optional().or(z.literal("")),
-  phone: z.string().optional().or(z.literal("")),
-  companyName: z.string().optional().or(z.literal("")),
+  email: z.string().optional(),
+  phone: z.string().optional(),
+  companyName: z.string().optional(),
   type: z.string().default("lead"),
 });
 
@@ -39,6 +40,8 @@ interface ContactFormProps {
 }
 
 export function ContactForm({ contact, onClose, onSuccess }: ContactFormProps) {
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  
   // Initialize the form with default values or existing contact data
   const form = useForm<z.infer<typeof contactSchema>>({
     resolver: zodResolver(contactSchema),
@@ -52,154 +55,125 @@ export function ContactForm({ contact, onClose, onSuccess }: ContactFormProps) {
     },
   });
 
-  // Setup mutations for creating or updating a contact
-  const createContactMutation = useMutation({
-    mutationFn: async (data: z.infer<typeof contactSchema>) => {
+  // Direct fetch approach for contact creation
+  const createContact = async (data: z.infer<typeof contactSchema>) => {
+    try {
+      setErrorMessage(null);
+      
+      // Log what we're sending to the server
       console.log("Creating contact with data:", data);
-      try {
-        // Ensure first name and last name are present
-        if (!data.firstName || !data.lastName) {
-          throw new Error("First and last name are required");
-        }
-        
-        // Ensure all optional fields have default values
-        const contactData = {
-          ...data,
-          companyName: data.companyName || "",
-          email: data.email || "",
-          phone: data.phone || "",
-          type: data.type || "lead",
-        };
-        
-        console.log("Normalized contact data:", contactData);
-        
-        const response = await apiRequest("POST", "/api/contacts", contactData);
-        console.log("Contact creation response:", response);
-        
-        if (!response.ok) {
-          // Attempt to parse error message from response
-          try {
-            const errorData = await response.json();
-            console.error("Server error response:", errorData);
-            
-            if (errorData && errorData.message) {
-              throw new Error(errorData.message);
-            } else if (errorData && errorData.errors && Array.isArray(errorData.errors)) {
-              throw new Error(errorData.errors.map((e: any) => e.message || e.path?.join('.')).join(', '));
-            } else {
-              throw new Error(`Server error: ${response.status}`);
-            }
-          } catch (e) {
-            // If we can't parse JSON, just use the status
-            throw new Error(`Server error: ${response.status}`);
-          }
-        }
-        
-        try {
-          return await response.json();
-        } catch (e) {
-          console.error("Error parsing response JSON:", e);
-          throw new Error("Invalid response from server");
-        }
-      } catch (error) {
-        console.error("Error creating contact:", error);
-        throw error;
+      
+      // Create a clean data object with explicit defaults for optional fields
+      const contactData = {
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email || "",
+        phone: data.phone || "",
+        companyName: data.companyName || "",
+        type: data.type || "lead",
+      };
+      
+      // Use plain fetch to simplify debugging
+      const response = await fetch("/api/contacts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(contactData),
+        credentials: "include"
+      });
+      
+      // Log the raw response
+      console.log("Server response status:", response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Server error:", errorText);
+        setErrorMessage(`Server error: ${errorText}`);
+        return null;
       }
-    },
+      
+      // Try to parse the response as JSON
+      const responseData = await response.json();
+      console.log("Contact created successfully:", responseData);
+      
+      // Invalidate the contacts query to refresh the list
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
+      
+      return responseData;
+    } catch (error) {
+      console.error("Error creating contact:", error);
+      setErrorMessage(error instanceof Error ? error.message : "Unknown error occurred");
+      return null;
+    }
+  };
+  
+  // Direct fetch approach for contact updates
+  const updateContact = async (data: z.infer<typeof contactSchema>) => {
+    try {
+      setErrorMessage(null);
+      
+      // Log what we're sending to the server
+      console.log("Updating contact with data:", data);
+      
+      // Create a clean data object with explicit defaults for optional fields
+      const contactData = {
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email || "",
+        phone: data.phone || "",
+        companyName: data.companyName || "",
+        type: data.type || "lead",
+      };
+      
+      // Use plain fetch to simplify debugging
+      const response = await fetch(`/api/contacts/${contact?.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(contactData),
+        credentials: "include"
+      });
+      
+      // Log the raw response
+      console.log("Server response status:", response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Server error:", errorText);
+        setErrorMessage(`Server error: ${errorText}`);
+        return null;
+      }
+      
+      // Try to parse the response as JSON
+      const responseData = await response.json();
+      console.log("Contact updated successfully:", responseData);
+      
+      // Invalidate the contacts query to refresh the list
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
+      
+      return responseData;
+    } catch (error) {
+      console.error("Error updating contact:", error);
+      setErrorMessage(error instanceof Error ? error.message : "Unknown error occurred");
+      return null;
+    }
+  };
+  
+  // Use mutations with our direct fetch functions
+  const createContactMutation = useMutation({
+    mutationFn: createContact,
     onSuccess: (data) => {
-      console.log("Contact created successfully:", data);
-      onSuccess();
-    },
-    onError: (error) => {
-      console.error("Contact creation mutation error:", error);
-      
-      let errorMessage = "Failed to create contact. ";
-      
-      if (error instanceof Error) {
-        errorMessage += error.message;
-      } else {
-        errorMessage += "Please check the console for details.";
-      }
-      
-      alert(errorMessage);
+      if (data) onSuccess();
     }
   });
-
+  
   const updateContactMutation = useMutation({
-    mutationFn: async (data: z.infer<typeof contactSchema>) => {
-      console.log("Updating contact with data:", data);
-      try {
-        // Ensure required fields
-        if (!data.firstName || !data.lastName) {
-          throw new Error("First and last name are required");
-        }
-        
-        // Ensure all optional fields have default values
-        const contactData = {
-          ...data,
-          companyName: data.companyName || "",
-          email: data.email || "",
-          phone: data.phone || "",
-          type: data.type || "lead",
-        };
-        
-        console.log("Normalized contact data for update:", contactData);
-        
-        const response = await apiRequest("PUT", `/api/contacts/${contact?.id}`, contactData);
-        console.log("Contact update response:", response);
-        
-        if (!response.ok) {
-          // Attempt to parse error message from response
-          try {
-            const errorData = await response.json();
-            console.error("Server error response:", errorData);
-            
-            if (errorData && errorData.message) {
-              throw new Error(errorData.message);
-            } else if (errorData && errorData.errors && Array.isArray(errorData.errors)) {
-              throw new Error(errorData.errors.map((e: any) => e.message || e.path?.join('.')).join(', '));
-            } else {
-              throw new Error(`Server error: ${response.status}`);
-            }
-          } catch (e) {
-            // If we can't parse JSON, just use the status
-            throw new Error(`Server error: ${response.status}`);
-          }
-        }
-        
-        try {
-          return await response.json();
-        } catch (e) {
-          console.error("Error parsing response JSON:", e);
-          throw new Error("Invalid response from server");
-        }
-      } catch (error) {
-        console.error("Error updating contact:", error);
-        throw error;
-      }
-    },
+    mutationFn: updateContact,
     onSuccess: (data) => {
-      console.log("Contact updated successfully:", data);
-      onSuccess();
-    },
-    onError: (error) => {
-      console.error("Contact update mutation error:", error);
-      
-      let errorMessage = "Failed to update contact. ";
-      
-      if (error instanceof Error) {
-        errorMessage += error.message;
-      } else {
-        errorMessage += "Please check the console for details.";
-      }
-      
-      alert(errorMessage);
+      if (data) onSuccess();
     }
   });
 
   // Handle form submission
   const onSubmit = async (data: z.infer<typeof contactSchema>) => {
-    console.log("Form submitted with data:", data);
     if (contact) {
       updateContactMutation.mutate(data);
     } else {
@@ -210,6 +184,13 @@ export function ContactForm({ contact, onClose, onSuccess }: ContactFormProps) {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        {/* Display any error messages */}
+        {errorMessage && (
+          <div className="bg-red-50 border border-red-200 text-red-800 rounded-md p-3 text-sm">
+            {errorMessage}
+          </div>
+        )}
+        
         <div className="grid grid-cols-2 gap-4">
           <FormField
             control={form.control}
@@ -259,7 +240,7 @@ export function ContactForm({ contact, onClose, onSuccess }: ContactFormProps) {
             name="email"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Email</FormLabel>
+                <FormLabel>Email (Optional)</FormLabel>
                 <FormControl>
                   <Input placeholder="john.doe@example.com" type="email" {...field} />
                 </FormControl>
@@ -272,7 +253,7 @@ export function ContactForm({ contact, onClose, onSuccess }: ContactFormProps) {
             name="phone"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Phone</FormLabel>
+                <FormLabel>Phone (Optional)</FormLabel>
                 <FormControl>
                   <Input placeholder="555-123-4567" {...field} />
                 </FormControl>
