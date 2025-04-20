@@ -175,6 +175,9 @@ export default function Quotes() {
     }
   };
 
+  // Check if contacts are available
+  const noContacts = !contacts || contacts.length === 0;
+
   return (
     <>
       <header className="mb-8">
@@ -186,7 +189,7 @@ export default function Quotes() {
           <div className="mt-4 sm:mt-0">
             <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
               <DialogTrigger asChild>
-                <Button>
+                <Button disabled={noContacts}>
                   <Plus className="mr-2 h-4 w-4" />
                   New Quote
                 </Button>
@@ -195,14 +198,23 @@ export default function Quotes() {
                 <DialogHeader>
                   <DialogTitle>Create New Quote</DialogTitle>
                 </DialogHeader>
-                <QuoteForm 
-                  contacts={contacts || []}
-                  onClose={() => setIsAddOpen(false)} 
-                  onSuccess={() => {
-                    setIsAddOpen(false);
-                    queryClient.invalidateQueries({ queryKey: ["/api/quotes"] });
-                  }}
-                />
+                {noContacts ? (
+                  <div className="p-6 text-center">
+                    <p className="mb-4 text-slate-600">You need to create a contact before you can create quotes.</p>
+                    <Button asChild>
+                      <a href="/contacts">Go to Contacts</a>
+                    </Button>
+                  </div>
+                ) : (
+                  <QuoteForm 
+                    contacts={contacts || []}
+                    onClose={() => setIsAddOpen(false)} 
+                    onSuccess={() => {
+                      setIsAddOpen(false);
+                      queryClient.invalidateQueries({ queryKey: ["/api/quotes"] });
+                    }}
+                  />
+                )}
               </DialogContent>
             </Dialog>
           </div>
