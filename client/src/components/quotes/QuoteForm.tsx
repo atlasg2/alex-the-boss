@@ -66,7 +66,7 @@ export function QuoteForm({ quote, contacts, onClose, onSuccess }: QuoteFormProp
 
   // Update quote items when fetched
   useEffect(() => {
-    if (fetchedItems) {
+    if (fetchedItems && Array.isArray(fetchedItems)) {
       setQuoteItems(fetchedItems);
       calculateTotal(fetchedItems);
     }
@@ -94,15 +94,20 @@ export function QuoteForm({ quote, contacts, onClose, onSuccess }: QuoteFormProp
       return response.json();
     },
     onSuccess: (data) => {
-      // After creating the quote, create each quote item
-      Promise.all(
-        quoteItems.map(item => 
-          apiRequest("POST", "/api/quote-items", { 
-            ...item, 
-            quoteId: data.id 
-          })
-        )
-      ).then(() => onSuccess());
+      // After creating the quote, create each quote item (if any)
+      if (quoteItems.length > 0) {
+        Promise.all(
+          quoteItems.map(item => 
+            apiRequest("POST", "/api/quote-items", { 
+              ...item, 
+              quoteId: data.id 
+            })
+          )
+        ).then(() => onSuccess());
+      } else {
+        // If no items, still consider it a success
+        onSuccess();
+      }
     },
   });
 
@@ -112,21 +117,26 @@ export function QuoteForm({ quote, contacts, onClose, onSuccess }: QuoteFormProp
     },
     onSuccess: () => {
       // Handle existing items: update or delete
-      const promises = quoteItems.map(item => {
-        if (item.id) {
-          // Update existing item
-          return apiRequest("PUT", `/api/quote-items/${item.id}`, item);
-        } else {
-          // Create new item for this quote
-          return apiRequest("POST", "/api/quote-items", { 
-            ...item, 
-            quoteId: quote?.id 
-          });
-        }
-      });
+      if (quoteItems.length > 0) {
+        const promises = quoteItems.map(item => {
+          if (item.id) {
+            // Update existing item
+            return apiRequest("PUT", `/api/quote-items/${item.id}`, item);
+          } else {
+            // Create new item for this quote
+            return apiRequest("POST", "/api/quote-items", { 
+              ...item, 
+              quoteId: quote?.id 
+            });
+          }
+        });
 
-      // Execute all promises and notify parent on completion
-      Promise.all(promises).then(() => onSuccess());
+        // Execute all promises and notify parent on completion
+        Promise.all(promises).then(() => onSuccess());
+      } else {
+        // If no items, still consider it a success
+        onSuccess();
+      }
     },
   });
 
@@ -160,17 +170,23 @@ export function QuoteForm({ quote, contacts, onClose, onSuccess }: QuoteFormProp
 
   // Handle form submission
   const onSubmit = async (data: z.infer<typeof quoteSchema>) => {
+    // Ensure we always have a valid total even if no items added
+    const submissionData = {
+      ...data,
+      total: data.total || 0
+    };
+    
     if (quote) {
-      updateQuoteMutation.mutate(data);
+      updateQuoteMutation.mutate(submissionData);
     } else {
-      createQuoteMutation.mutate(data);
+      createQuoteMutation.mutate(submissionData);
     }
   };
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <div className="grid grid-cols-2 gap-4">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 overflow-y-auto max-h-[calc(100vh-200px)]">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FormField
             control={form.control}
             name="contactId"
