@@ -719,6 +719,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Load the job details
+      if (!portalToken.jobId) {
+        return res.status(400).json({ message: "Invalid job reference in portal token" });
+      }
+      
       const job = await storage.getJob(portalToken.jobId);
       if (!job) {
         return res.status(404).json({ message: "Job not found" });

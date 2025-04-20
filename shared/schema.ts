@@ -125,7 +125,7 @@ export const notes = pgTable("notes", {
 // Portal tokens table
 export const portalTokens = pgTable("portal_tokens", {
   id: uuid("id").defaultRandom().primaryKey(),
-  jobId: uuid("job_id").references(() => jobs.id, { onDelete: "cascade" }),
+  jobId: uuid("job_id").notNull().references(() => jobs.id, { onDelete: "cascade" }),
   token: text("token").notNull().unique(),
   expiresAt: timestamp("expires_at"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -220,11 +220,15 @@ export const insertNoteSchema = createInsertSchema(notes).pick({
   content: true,
 });
 
-export const insertPortalTokenSchema = createInsertSchema(portalTokens).pick({
-  jobId: true,
-  token: true,
-  expiresAt: true,
-});
+export const insertPortalTokenSchema = createInsertSchema(portalTokens)
+  .pick({
+    jobId: true,
+    token: true,
+    expiresAt: true,
+  })
+  .extend({
+    jobId: z.string().min(1, "Job ID is required"),
+  });
 
 // Types
 export type User = typeof users.$inferSelect;
