@@ -176,7 +176,12 @@ export const insertQuoteSchema = createInsertSchema(quotes)
   })
   .extend({
     total: z.union([z.string(), z.number()]).optional().transform(val => val || "0"),
-    status: z.string().default("draft")
+    status: z.string().default("draft"),
+    validUntil: z.union([
+      z.string().transform(val => val ? new Date(val) : undefined),
+      z.date().optional(),
+      z.undefined()
+    ]).optional()
   });
 
 export const insertQuoteItemSchema = createInsertSchema(quoteItems).pick({

@@ -226,6 +226,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         req.body.status = "draft";
       }
       
+      // Convert validUntil to Date object if it's a string
+      if (req.body.validUntil && typeof req.body.validUntil === 'string') {
+        try {
+          // Convert the string to a Date object
+          const date = new Date(req.body.validUntil);
+          // Check if it's a valid date
+          if (!isNaN(date.getTime())) {
+            req.body.validUntil = date;
+          }
+        } catch (e) {
+          console.warn("Failed to convert validUntil to date:", e);
+          // If conversion fails, let Zod handle it
+        }
+      }
+      
+      console.log("Prepared data for parsing:", req.body);
       const quoteData = insertQuoteSchema.parse(req.body);
       console.log("Parsed quote data:", quoteData);
       
@@ -265,6 +281,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         req.body.status = "draft";
       }
       
+      // Convert validUntil to Date object if it's a string
+      if (req.body.validUntil && typeof req.body.validUntil === 'string') {
+        try {
+          // Convert the string to a Date object
+          const date = new Date(req.body.validUntil);
+          // Check if it's a valid date
+          if (!isNaN(date.getTime())) {
+            req.body.validUntil = date;
+          }
+        } catch (e) {
+          console.warn("Failed to convert validUntil to date:", e);
+          // If conversion fails, let Zod handle it
+        }
+      }
+      
+      console.log("Prepared data for parsing:", req.body);
       const quoteData = insertQuoteSchema.partial().parse(req.body);
       console.log("Parsed quote update data:", quoteData);
       
