@@ -3,7 +3,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -96,12 +96,22 @@ export function QuoteForm({ quote, contacts, onClose, onSuccess }: QuoteFormProp
     mutationFn: async (data: z.infer<typeof quoteSchema>) => {
       console.log("Creating quote with data:", data);
       const response = await apiRequest("POST", "/api/quotes", data);
+      
+      if (!response.ok) {
+        console.error("Server error creating quote:", response.status, response.statusText);
+        const errorText = await response.text();
+        throw new Error(`Failed to create quote: ${errorText}`);
+      }
+      
       const responseData = await response.json();
       console.log("Quote created:", responseData);
       return responseData;
     },
     onSuccess: (data) => {
       console.log("Quote created successfully:", data);
+      
+      // Forcefully invalidate the quotes cache to ensure refresh
+      queryClient.invalidateQueries({ queryKey: ["/api/quotes"] });
       
       // After creating the quote, create each quote item (if any)
       if (quoteItems.length > 0) {
@@ -117,11 +127,14 @@ export function QuoteForm({ quote, contacts, onClose, onSuccess }: QuoteFormProp
         )
         .then(() => {
           console.log("All quote items saved");
+          // Invalidate one more time to make sure we get the latest data
+          queryClient.invalidateQueries({ queryKey: ["/api/quotes"] });
           onSuccess();
         })
         .catch(error => {
           console.error("Error saving quote items:", error);
           // Still mark success as the quote was created
+          queryClient.invalidateQueries({ queryKey: ["/api/quotes"] });
           onSuccess();
         });
       } else {
@@ -191,7 +204,7 @@ export function QuoteForm({ quote, contacts, onClose, onSuccess }: QuoteFormProp
       ...quoteItems,
       {
         id: 0, // Will be assigned by the server
-        quoteId: quote?.id || "",
+        quoteId: quote?.id || "", // This will be filled in when the item is submitted
         description: "",
         sqft: 0,
         unitPrice: 0,

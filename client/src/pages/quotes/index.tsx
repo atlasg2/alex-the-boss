@@ -46,7 +46,7 @@ export default function Quotes() {
   const { toast } = useToast();
 
   // Fetch quotes and include contacts for display
-  const { data: quotes, isLoading } = useQuery<QuoteWithDetails[]>({
+  const { data: quotes, isLoading, refetch: refetchQuotes } = useQuery<QuoteWithDetails[]>({
     queryKey: ["/api/quotes"],
   });
 
@@ -105,7 +105,7 @@ export default function Quotes() {
     if (!contacts) return;
     
     const contact = contacts.find((c: ContactWithDetail) => c.id === quote.contactId);
-    if (!contact) return;
+    if (!contact || !contact.id) return;
     
     try {
       // Generate portal credentials
@@ -227,10 +227,22 @@ export default function Quotes() {
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle>All Quotes</CardTitle>
-          <CardDescription>
-            View and manage all quotes sent to your clients.
-          </CardDescription>
+          <div className="flex justify-between items-center">
+            <div>
+              <CardTitle>All Quotes</CardTitle>
+              <CardDescription>
+                View and manage all quotes sent to your clients.
+              </CardDescription>
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => refetchQuotes()}
+              disabled={isLoading}
+            >
+              {isLoading ? "Loading..." : "Refresh Quotes"}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -395,7 +407,7 @@ export default function Quotes() {
                   <div className="flex items-center mt-1">
                     <input 
                       type="text" 
-                      value={portalCredentials?.email || ''} 
+                      value={portalCredentials && portalCredentials.email ? portalCredentials.email : ''} 
                       className="flex-1 bg-white border border-slate-200 rounded-md px-3 py-2 text-sm"
                       readOnly
                     />
