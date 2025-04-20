@@ -713,19 +713,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.updatePortalLastLogin(contact.id);
       
       // Create session for the portal user
-      if (req.session) {
-        req.session.portalUser = {
-          contactId: contact.id,
-          email: contact.email,
-          firstName: contact.firstName,
-          lastName: contact.lastName
-        };
+      if (!req.session) {
+        console.error("Session object not available on request");
+        return res.status(500).json({ message: "Session handling error" });
       }
       
-      // Never return the hashed password to the client
-      const { portalPassword, ...contactWithoutPassword } = contact;
+      req.session.portalUser = {
+        contactId: contact.id,
+        email: contact.email,
+        firstName: contact.firstName,
+        lastName: contact.lastName
+      };
       
-      res.status(200).json(contactWithoutPassword);
+      // Make sure the session is saved before responding
+      req.session.save((err) => {
+        if (err) {
+          console.error("Failed to save session:", err);
+          return res.status(500).json({ message: "Session handling error" });
+        }
+        
+        console.log("Session saved successfully:", req.session.id);
+        console.log("Session portalUser:", req.session.portalUser);
+        
+        // Never return the hashed password to the client
+        const { portalPassword, ...contactWithoutPassword } = contact;
+        
+        res.status(200).json(contactWithoutPassword);
+      });
     } catch (error) {
       console.error("Portal login error:", error);
       res.status(500).json({ message: "Failed to login to portal" });
