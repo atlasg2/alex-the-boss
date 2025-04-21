@@ -126,3 +126,55 @@ export const queryClient = new QueryClient({
     },
   },
 });
+
+// Quote-specific API functions
+export const quoteApi = {
+  getQuote: async (quoteId: string) => {
+    const response = await apiRequest("GET", `/api/quotes/${quoteId}`, undefined);
+    if (!response.ok) {
+      throw new Error("Failed to fetch quote");
+    }
+    return response.json();
+  },
+  
+  getQuoteItems: async (quoteId: string) => {
+    const response = await apiRequest("GET", `/api/quotes/${quoteId}/items`, undefined);
+    if (!response.ok) {
+      throw new Error("Failed to fetch quote items");
+    }
+    return response.json();
+  },
+  
+  getQuotePdf: async (quoteId: string) => {
+    // This will return a PDF blob
+    const response = await fetch(`/api/quotes/${quoteId}/pdf?format=pdf`);
+    if (!response.ok) {
+      throw new Error("Failed to generate PDF");
+    }
+    return response.blob();
+  },
+  
+  sendQuote: async (quoteId: string) => {
+    const response = await apiRequest("POST", `/api/quotes/${quoteId}/send`, {});
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || "Failed to send quote");
+    }
+    return response.json();
+  },
+  
+  approveQuote: async (quoteId: string, signature: string, customerName?: string, notes?: string) => {
+    const response = await apiRequest("POST", `/api/quotes/${quoteId}/approve`, {
+      signature,
+      date: new Date().toISOString(),
+      customerName,
+      notes
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || "Failed to approve quote");
+    }
+    return response.json();
+  }
+};

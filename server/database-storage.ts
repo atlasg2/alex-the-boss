@@ -5,7 +5,8 @@ import {
   User, InsertUser, Contact, InsertContact, Quote, InsertQuote, 
   QuoteItem, InsertQuoteItem, Contract, InsertContract, Invoice, 
   InsertInvoice, Job, InsertJob, File, InsertFile, Message, 
-  InsertMessage, Note, InsertNote, PortalToken, InsertPortalToken
+  InsertMessage, Note, InsertNote, PortalToken, InsertPortalToken,
+  FlooringMaterial, InsertFlooringMaterial
 } from "@shared/schema";
 import { IStorage } from "./storage";
 
@@ -324,5 +325,38 @@ export class DatabaseStorage implements IStorage {
   async createPortalToken(portalToken: InsertPortalToken): Promise<PortalToken> {
     const [newPortalToken] = await db.insert(schema.portalTokens).values(portalToken).returning();
     return newPortalToken;
+  }
+
+  // Flooring Materials
+  async getFlooringMaterials(): Promise<FlooringMaterial[]> {
+    return await db.select().from(schema.flooringMaterials);
+  }
+
+  async getFlooringMaterialsByType(type: string): Promise<FlooringMaterial[]> {
+    return await db.select().from(schema.flooringMaterials).where(eq(schema.flooringMaterials.type, type));
+  }
+
+  async getFlooringMaterial(id: string): Promise<FlooringMaterial | undefined> {
+    const [material] = await db.select().from(schema.flooringMaterials).where(eq(schema.flooringMaterials.id, id));
+    return material;
+  }
+
+  async createFlooringMaterial(material: InsertFlooringMaterial): Promise<FlooringMaterial> {
+    const [newMaterial] = await db.insert(schema.flooringMaterials).values(material).returning();
+    return newMaterial;
+  }
+
+  async updateFlooringMaterial(id: string, material: Partial<InsertFlooringMaterial>): Promise<FlooringMaterial | undefined> {
+    const [updatedMaterial] = await db
+      .update(schema.flooringMaterials)
+      .set(material)
+      .where(eq(schema.flooringMaterials.id, id))
+      .returning();
+    return updatedMaterial;
+  }
+
+  async deleteFlooringMaterial(id: string): Promise<boolean> {
+    await db.delete(schema.flooringMaterials).where(eq(schema.flooringMaterials.id, id));
+    return true;
   }
 }

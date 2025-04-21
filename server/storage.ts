@@ -1,9 +1,10 @@
 import {
-  users, contacts, quotes, quoteItems, contracts, invoices, jobs, files, messages, notes, portalTokens,
+  users, contacts, quotes, quoteItems, contracts, invoices, jobs, files, messages, notes, portalTokens, flooringMaterials,
   type User, type InsertUser, type Contact, type InsertContact, type Quote, type InsertQuote,
   type QuoteItem, type InsertQuoteItem, type Contract, type InsertContract, type Invoice, type InsertInvoice,
   type Job, type InsertJob, type File, type InsertFile, type Message, type InsertMessage,
-  type Note, type InsertNote, type PortalToken, type InsertPortalToken
+  type Note, type InsertNote, type PortalToken, type InsertPortalToken, 
+  type FlooringMaterial, type InsertFlooringMaterial
 } from "@shared/schema";
 
 // Storage interface for all entities
@@ -82,6 +83,14 @@ export interface IStorage {
   // Portal Tokens
   getPortalToken(token: string): Promise<PortalToken | undefined>;
   createPortalToken(portalToken: InsertPortalToken): Promise<PortalToken>;
+  
+  // Flooring Materials
+  getFlooringMaterials(): Promise<FlooringMaterial[]>;
+  getFlooringMaterialsByType(type: string): Promise<FlooringMaterial[]>;
+  getFlooringMaterial(id: string): Promise<FlooringMaterial | undefined>;
+  createFlooringMaterial(material: InsertFlooringMaterial): Promise<FlooringMaterial>;
+  updateFlooringMaterial(id: string, material: Partial<InsertFlooringMaterial>): Promise<FlooringMaterial | undefined>;
+  deleteFlooringMaterial(id: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -96,6 +105,7 @@ export class MemStorage implements IStorage {
   private messages: Map<string, Message>;
   private notes: Map<string, Note>;
   private portalTokens: Map<string, PortalToken>;
+  private flooringMaterials: Map<string, FlooringMaterial>;
   currentUserId: number;
 
   constructor() {
@@ -110,6 +120,7 @@ export class MemStorage implements IStorage {
     this.messages = new Map();
     this.notes = new Map();
     this.portalTokens = new Map();
+    this.flooringMaterials = new Map();
     this.currentUserId = 1;
     
     // Create a default user
@@ -439,6 +450,39 @@ export class MemStorage implements IStorage {
     const newPortalToken: PortalToken = { ...portalToken, id, createdAt: new Date() };
     this.portalTokens.set(id, newPortalToken);
     return newPortalToken;
+  }
+  
+  // Flooring Materials
+  async getFlooringMaterials(): Promise<FlooringMaterial[]> {
+    return Array.from(this.flooringMaterials.values());
+  }
+
+  async getFlooringMaterialsByType(type: string): Promise<FlooringMaterial[]> {
+    return Array.from(this.flooringMaterials.values()).filter(material => material.type === type);
+  }
+
+  async getFlooringMaterial(id: string): Promise<FlooringMaterial | undefined> {
+    return this.flooringMaterials.get(id);
+  }
+
+  async createFlooringMaterial(material: InsertFlooringMaterial): Promise<FlooringMaterial> {
+    const id = crypto.randomUUID();
+    const newMaterial: FlooringMaterial = { ...material, id, createdAt: new Date() };
+    this.flooringMaterials.set(id, newMaterial);
+    return newMaterial;
+  }
+
+  async updateFlooringMaterial(id: string, material: Partial<InsertFlooringMaterial>): Promise<FlooringMaterial | undefined> {
+    const existingMaterial = this.flooringMaterials.get(id);
+    if (!existingMaterial) return undefined;
+    
+    const updatedMaterial = { ...existingMaterial, ...material };
+    this.flooringMaterials.set(id, updatedMaterial);
+    return updatedMaterial;
+  }
+
+  async deleteFlooringMaterial(id: string): Promise<boolean> {
+    return this.flooringMaterials.delete(id);
   }
 }
 

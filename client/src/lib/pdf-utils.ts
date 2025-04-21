@@ -1,6 +1,7 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { QuoteWithDetails, ContactWithDetail, QuoteItemWithCalculation } from './types';
 
+// Original PDF-lib implementation for backwards compatibility
 // Generate a PDF for a quote
 export const generateQuotePDF = async (
   quote: QuoteWithDetails,
@@ -16,11 +17,11 @@ export const generateQuotePDF = async (
   
   // Set some basic metadata
   pdfDoc.setTitle(`Quote for ${contact.firstName} ${contact.lastName}`);
-  pdfDoc.setAuthor('Pereira Construction');
-  pdfDoc.setCreator('Pereira Portal');
+  pdfDoc.setAuthor('Apex Flooring');
+  pdfDoc.setCreator('Contractor Portal');
   
   // Draw header
-  page.drawText('Pereira Construction', {
+  page.drawText('Apex Flooring', {
     x: 50,
     y: 730,
     size: 24,
@@ -37,14 +38,14 @@ export const generateQuotePDF = async (
   });
   
   // Draw company info
-  page.drawText('1234 Construction Ave.', {
+  page.drawText('123 Main Street, Suite 100', {
     x: 50,
     y: 700,
     size: 10,
     font: helveticaFont,
   });
   
-  page.drawText('Boston, MA 02110', {
+  page.drawText('Boston, MA 02108', {
     x: 50,
     y: 685,
     size: 10,
@@ -58,7 +59,7 @@ export const generateQuotePDF = async (
     font: helveticaFont,
   });
   
-  page.drawText('Email: info@pereiraconstruction.com', {
+  page.drawText('Email: info@apexflooring.com', {
     x: 50,
     y: 655,
     size: 10,
@@ -256,7 +257,7 @@ export const generateQuotePDF = async (
     '2. A 50% deposit is required to begin work, with the balance due upon completion.',
     '3. Any additional work not specified in this quote will be subject to a separate quote.',
     '4. Changes to the scope of work may affect the final price.',
-    '5. Pereira Construction is fully licensed and insured.'
+    '5. Apex Flooring is fully licensed and insured.'
   ];
   
   let termsY = lineY - 90;
@@ -337,11 +338,11 @@ export const generateInvoicePDF = async (
   
   // Set some basic metadata
   pdfDoc.setTitle(`Invoice for ${contact.firstName} ${contact.lastName}`);
-  pdfDoc.setAuthor('Pereira Construction');
-  pdfDoc.setCreator('Pereira Portal');
+  pdfDoc.setAuthor('Apex Flooring');
+  pdfDoc.setCreator('Contractor Portal');
   
   // Draw header
-  page.drawText('Pereira Construction', {
+  page.drawText('Apex Flooring', {
     x: 50,
     y: 730,
     size: 24,
@@ -358,14 +359,14 @@ export const generateInvoicePDF = async (
   });
   
   // Company info
-  page.drawText('1234 Construction Ave.', {
+  page.drawText('123 Main Street, Suite 100', {
     x: 50,
     y: 700,
     size: 10,
     font: helveticaFont,
   });
   
-  page.drawText('Boston, MA 02110', {
+  page.drawText('Boston, MA 02108', {
     x: 50,
     y: 685,
     size: 10,
@@ -379,7 +380,7 @@ export const generateInvoicePDF = async (
     font: helveticaFont,
   });
   
-  page.drawText('Email: info@pereiraconstruction.com', {
+  page.drawText('Email: info@apexflooring.com', {
     x: 50,
     y: 655,
     size: 10,
@@ -523,12 +524,12 @@ export const generateInvoicePDF = async (
   });
   
   const paymentInfo = [
-    'Please make checks payable to: Pereira Construction',
+    'Please make checks payable to: Apex Flooring',
     'Wire Transfer:',
     'Bank: First National Bank',
     'Account #: 123456789',
     'Routing #: 987654321',
-    'Or pay online at: www.pereiraconstruction.com/pay'
+    'Or pay online at: www.apexflooring.com/pay'
   ];
   
   let paymentY = lineY - 90;
@@ -572,11 +573,11 @@ export const generateContractPDF = async (
   
   // Set some basic metadata
   pdfDoc.setTitle(`Contract for ${contact.firstName} ${contact.lastName}`);
-  pdfDoc.setAuthor('Pereira Construction');
-  pdfDoc.setCreator('Pereira Portal');
+  pdfDoc.setAuthor('Apex Flooring');
+  pdfDoc.setCreator('Contractor Portal');
   
   // Draw header
-  page.drawText('Pereira Construction', {
+  page.drawText('Apex Flooring', {
     x: 50,
     y: 730,
     size: 24,
@@ -608,21 +609,21 @@ export const generateContractPDF = async (
   });
   
   // Parties information
-  page.drawText('This Construction Contract (the "Contract") is entered into by and between:', {
+  page.drawText('This Flooring Contract (the "Contract") is entered into by and between:', {
     x: 50,
     y: 650,
     size: 10,
     font: helveticaFont,
   });
   
-  page.drawText('Pereira Construction', {
+  page.drawText('Apex Flooring', {
     x: 50,
     y: 630,
     size: 12,
     font: helveticaBold,
   });
   
-  page.drawText('1234 Construction Ave., Boston, MA 02110', {
+  page.drawText('123 Main Street, Suite 100, Boston, MA 02108', {
     x: 50,
     y: 615,
     size: 10,
@@ -855,4 +856,18 @@ export const downloadPDF = (pdfBytes: Uint8Array, fileName: string) => {
   link.href = URL.createObjectURL(blob);
   link.download = fileName;
   link.click();
+};
+
+// Function to format a number as currency
+export const formatCurrency = (amount: string | number) => {
+  return `$${parseFloat(amount.toString()).toFixed(2)}`;
+};
+
+// Function to format a date
+export const formatDate = (date: Date) => {
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
 };

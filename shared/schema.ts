@@ -19,6 +19,8 @@ export const contractStatusEnum = pgEnum("contract_status", ["pending", "active"
 export const invoiceStatusEnum = pgEnum("invoice_status", ["draft", "sent", "paid", "overdue"]);
 export const contactTypeEnum = pgEnum("contact_type", ["lead", "customer", "supplier"]);
 export const jobStageEnum = pgEnum("job_stage", ["planning", "materials_ordered", "in_progress", "finishing", "complete"]);
+export const flooringTypeEnum = pgEnum("flooring_type", ["hardwood", "laminate", "vinyl", "tile", "carpet", "other"]);
+export const flooringServiceEnum = pgEnum("flooring_service", ["installation", "removal", "subfloor_prep", "trim_work", "staining", "sealing", "repair"]);
 
 // Contacts table
 export const contacts = pgTable("contacts", {
@@ -54,6 +56,12 @@ export const quoteItems = pgTable("quote_items", {
   sqft: numeric("sqft"),
   unitPrice: numeric("unit_price").notNull(),
   quantity: integer("quantity").notNull().default(1),
+  materialType: text("material_type"),  // References flooringTypeEnum
+  serviceType: text("service_type"),    // References flooringServiceEnum
+  roomName: text("room_name"),          // E.g., "Living Room", "Kitchen"
+  width: numeric("width"),              // Room width in feet
+  length: numeric("length"),            // Room length in feet
+  notes: text("notes"),                 // Special instructions
 });
 
 // Contracts table
@@ -84,6 +92,11 @@ export const jobs = pgTable("jobs", {
   stage: text("stage").notNull().default("planning"),
   startDate: timestamp("start_date"),
   endDate: timestamp("end_date"),
+  totalSqft: numeric("total_sqft"),
+  primaryFlooringType: text("primary_flooring_type"), // Main flooring material
+  requiresSubfloorPrep: boolean("requires_subfloor_prep").default(false),
+  hasExistingFlooringRemoval: boolean("has_existing_flooring_removal").default(false),
+  specialInstructions: text("special_instructions"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -128,6 +141,24 @@ export const portalTokens = pgTable("portal_tokens", {
   jobId: uuid("job_id").notNull().references(() => jobs.id, { onDelete: "cascade" }),
   token: text("token").notNull().unique(),
   expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Flooring materials catalog
+export const flooringMaterials = pgTable("flooring_materials", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: text("name").notNull(),
+  type: text("type").notNull(), // References flooringTypeEnum
+  brand: text("brand"),
+  color: text("color"),
+  thickness: text("thickness"),
+  width: text("width"),
+  length: text("length"),
+  unitPrice: numeric("unit_price").notNull(),
+  unitType: text("unit_type").default("sqft"), // sqft, box, etc.
+  description: text("description"),
+  imageUrl: text("image_url"),
+  inStock: boolean("in_stock").default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -190,6 +221,12 @@ export const insertQuoteItemSchema = createInsertSchema(quoteItems).pick({
   sqft: true,
   unitPrice: true,
   quantity: true,
+  materialType: true,
+  serviceType: true,
+  roomName: true,
+  width: true,
+  length: true,
+  notes: true,
 });
 
 export const insertContractSchema = createInsertSchema(contracts).pick({
@@ -212,6 +249,11 @@ export const insertJobSchema = createInsertSchema(jobs).pick({
   stage: true,
   startDate: true,
   endDate: true,
+  totalSqft: true,
+  primaryFlooringType: true,
+  requiresSubfloorPrep: true,
+  hasExistingFlooringRemoval: true,
+  specialInstructions: true,
 });
 
 export const insertFileSchema = createInsertSchema(files).pick({
@@ -250,6 +292,26 @@ export const insertPortalTokenSchema = createInsertSchema(portalTokens)
     jobId: z.string().min(1, "Job ID is required"),
   });
 
+export const insertFlooringMaterialSchema = createInsertSchema(flooringMaterials)
+  .pick({
+    name: true,
+    type: true,
+    brand: true,
+    color: true,
+    thickness: true,
+    width: true,
+    length: true,
+    unitPrice: true,
+    unitType: true,
+    description: true,
+    imageUrl: true,
+    inStock: true,
+  })
+  .extend({
+    unitPrice: z.union([z.string(), z.number()]).transform(val => val || "0"),
+    inStock: z.boolean().default(true).optional(),
+  });
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -283,3 +345,6 @@ export type InsertNote = z.infer<typeof insertNoteSchema>;
 
 export type PortalToken = typeof portalTokens.$inferSelect;
 export type InsertPortalToken = z.infer<typeof insertPortalTokenSchema>;
+
+export type FlooringMaterial = typeof flooringMaterials.$inferSelect;
+export type InsertFlooringMaterial = z.infer<typeof insertFlooringMaterialSchema>;
