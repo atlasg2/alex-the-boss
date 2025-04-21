@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { 
   Card, 
@@ -30,14 +30,20 @@ interface ContactDetailProps {
   onEdit: () => void;
 }
 
-export function ContactDetail({ contact, onEdit }: ContactDetailProps) {
+export function ContactDetail({ contact: initialContact, onEdit }: ContactDetailProps) {
   const { toast } = useToast();
   const [isPortalDialogOpen, setIsPortalDialogOpen] = useState(false);
+  const [localContact, setLocalContact] = useState<ContactWithDetail>(initialContact);
   const [portalCredentials, setPortalCredentials] = useState<{
     username: string;
     password: string;
     url: string;
   } | null>(null);
+
+  // Update localContact when initialContact changes
+  useEffect(() => {
+    setLocalContact(initialContact);
+  }, [initialContact]);
 
   // Enable portal access mutation
   const enablePortalMutation = useMutation({
@@ -46,9 +52,15 @@ export function ContactDetail({ contact, onEdit }: ContactDetailProps) {
       return await res.json();
     },
     onSuccess: (data) => {
+      // Update local contact state with portal enabled
+      setLocalContact(prev => ({
+        ...prev,
+        portalEnabled: true
+      }));
+      
       setPortalCredentials(data.portalAccess);
       queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
-      queryClient.invalidateQueries({ queryKey: [`/api/contacts/${contact.id}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/contacts/${localContact.id}`] });
       toast({
         title: "Portal access enabled",
         description: "Client can now access the portal",
@@ -65,7 +77,7 @@ export function ContactDetail({ contact, onEdit }: ContactDetailProps) {
   });
 
   const handleEnablePortal = () => {
-    if (!contact.email) {
+    if (!localContact.email) {
       toast({
         title: "Cannot enable portal access",
         description: "Contact must have an email address",
@@ -74,7 +86,7 @@ export function ContactDetail({ contact, onEdit }: ContactDetailProps) {
       return;
     }
     
-    enablePortalMutation.mutate(contact.id);
+    enablePortalMutation.mutate(localContact.id);
   };
 
   return (
@@ -84,14 +96,14 @@ export function ContactDetail({ contact, onEdit }: ContactDetailProps) {
           <div className="flex justify-between items-start">
             <div>
               <CardTitle className="text-xl">
-                {contact.firstName} {contact.lastName}
+                {localContact.firstName} {localContact.lastName}
               </CardTitle>
               <CardDescription>
-                {contact.type === "lead" ? (
+                {localContact.type === "lead" ? (
                   <Badge variant="outline" className="mt-1 bg-yellow-50 text-yellow-700 border-yellow-200">
                     Lead
                   </Badge>
-                ) : contact.type === "customer" ? (
+                ) : localContact.type === "customer" ? (
                   <Badge variant="outline" className="mt-1 bg-green-50 text-green-700 border-green-200">
                     Customer
                   </Badge>
@@ -106,24 +118,24 @@ export function ContactDetail({ contact, onEdit }: ContactDetailProps) {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {contact.companyName && (
+          {localContact.companyName && (
             <div className="flex items-center">
               <Building className="h-4 w-4 mr-2 text-slate-400" />
-              <span>{contact.companyName}</span>
+              <span>{localContact.companyName}</span>
             </div>
           )}
           
-          {contact.email && (
+          {localContact.email && (
             <div className="flex items-center">
               <Mail className="h-4 w-4 mr-2 text-slate-400" />
-              <span>{contact.email}</span>
+              <span>{localContact.email}</span>
             </div>
           )}
           
-          {contact.phone && (
+          {localContact.phone && (
             <div className="flex items-center">
               <Phone className="h-4 w-4 mr-2 text-slate-400" />
-              <span>{contact.phone}</span>
+              <span>{localContact.phone}</span>
             </div>
           )}
           
@@ -134,7 +146,7 @@ export function ContactDetail({ contact, onEdit }: ContactDetailProps) {
             <div className="flex items-center mb-2">
               <KeyRound className="h-4 w-4 mr-2 text-slate-400" />
               <span className="mr-2">Status:</span>
-              {contact.portalEnabled ? (
+              {localContact.portalEnabled ? (
                 <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
                   Enabled
                 </Badge>
@@ -148,12 +160,12 @@ export function ContactDetail({ contact, onEdit }: ContactDetailProps) {
         </CardContent>
         <CardFooter>
           <Button 
-            variant={contact.portalEnabled ? "outline" : "default"} 
+            variant={localContact.portalEnabled ? "outline" : "default"} 
             onClick={handleEnablePortal}
-            disabled={enablePortalMutation.isPending || !contact.email}
+            disabled={enablePortalMutation.isPending || !localContact.email}
           >
             <KeyRound className="h-4 w-4 mr-2" />
-            {contact.portalEnabled ? "Reset Portal Access" : "Enable Portal Access"}
+            {localContact.portalEnabled ? "Reset Portal Access" : "Enable Portal Access"}
           </Button>
         </CardFooter>
       </Card>
