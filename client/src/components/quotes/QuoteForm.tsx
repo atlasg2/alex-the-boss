@@ -15,7 +15,7 @@ interface QuoteFormProps {
   onApprove?: (quoteId: string, signature: string) => void;
 }
 
-export default function QuoteForm({ quote, contact, onSave, onSend, onApprove }: QuoteFormProps) {
+export function QuoteForm({ quote, contact, onSave, onSend, onApprove }: QuoteFormProps) {
   const [isApproving, setIsApproving] = useState(false);
   const [signature, setSignature] = useState('');
   const [sending, setSending] = useState(false);
