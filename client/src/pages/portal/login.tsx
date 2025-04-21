@@ -1,210 +1,141 @@
-import { useEffect, useState } from 'react';
-import { useLocation } from 'wouter';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { useToast } from '@/hooks/use-toast';
-import { portalLogin, getCurrentPortalUser } from '@/lib/auth';
-import { Loader2 } from 'lucide-react';
+import { useState } from "react";
+import { useLocation } from "wouter";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { AlertCircle } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 
-const formSchema = z.object({
-  email: z.string().email({
-    message: 'Please enter a valid email address.',
-  }),
-  password: z.string().min(4, {
-    message: 'Password must be at least 4 characters.',
-  }),
+const portalLoginSchema = z.object({
+  email: z.string().email("Please enter a valid email address"),
+  password: z.string().min(1, "Password is required"),
 });
 
-export default function PortalLoginPage() {
-  const [isLoading, setIsLoading] = useState(false);
+type PortalLoginFormValues = z.infer<typeof portalLoginSchema>;
+
+export default function PortalLogin() {
   const [, setLocation] = useLocation();
-  const { toast } = useToast();
+  const [loginError, setLoginError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      setIsLoading(true);
-      try {
-        const { success, data } = await getCurrentPortalUser();
-        if (success && data) {
-          // If already logged in, redirect to portal dashboard
-          setLocation('/portal/dashboard');
-        }
-      } catch (error) {
-        console.error('Auth check error:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    checkAuth();
-  }, [setLocation]);
-
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
+  const form = useForm<PortalLoginFormValues>({
+    resolver: zodResolver(portalLoginSchema),
     defaultValues: {
-      email: '',
-      password: '',
+      email: "",
+      password: "",
     },
   });
 
-  const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    setIsLoading(true);
-    try {
-      const result = await portalLogin(values.email, values.password);
-      
-      if (result.success) {
-        toast({
-          title: 'Login successful',
-          description: 'Welcome to your client portal',
-        });
-        setLocation('/portal/dashboard');
-      } else {
-        toast({
-          title: 'Login failed',
-          description: 'Please check your email and password',
-          variant: 'destructive',
-        });
-      }
-    } catch (error) {
-      console.error('Login error:', error);
-      toast({
-        title: 'Login error',
-        description: 'An unexpected error occurred. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const loginMutation = useMutation({
+    mutationFn: async (data: PortalLoginFormValues) => {
+      const response = await apiRequest("POST", "/api/portal/login", data);
+      return await response.json();
+    },
+    onSuccess: () => {
+      setLocation("/portal/dashboard");
+    },
+    onError: (error: Error) => {
+      setLoginError(error.message || "Login failed. Please check your credentials.");
+    },
+  });
+
+  function onSubmit(data: PortalLoginFormValues) {
+    setLoginError(null);
+    loginMutation.mutate(data);
+  }
 
   return (
-    <div className="flex min-h-screen w-full flex-col items-center justify-center bg-gradient-to-b from-slate-50 to-slate-100 p-4">
-      <div className="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-        {/* Login Form */}
-        <div className="w-full max-w-md mx-auto">
-          <Card className="shadow-lg border-slate-200">
-            <CardHeader className="space-y-1">
-              <CardTitle className="text-3xl font-bold">Client Portal</CardTitle>
-              <CardDescription>
-                Enter your email and password to access your project dashboard
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                  <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email</FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder="your.email@example.com" 
-                            {...field} 
-                            disabled={isLoading}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Password</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="password" 
-                            placeholder="••••••••" 
-                            {...field} 
-                            disabled={isLoading}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <Button 
-                    type="submit" 
-                    className="w-full" 
-                    disabled={isLoading}
-                  >
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Logging in...
-                      </>
-                    ) : (
-                      'Log in'
-                    )}
-                  </Button>
-                </form>
-              </Form>
-            </CardContent>
-            <CardFooter className="border-t p-4">
-              <p className="text-sm text-slate-600 text-center w-full">
-                Having trouble logging in? Contact your project manager for assistance.
-              </p>
-            </CardFooter>
-          </Card>
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
+      <div className="w-full max-w-md">
+        <div className="mb-6 text-center">
+          <h1 className="text-3xl font-bold text-gray-800">Client Portal</h1>
+          <p className="mt-2 text-slate-600">Access your projects and quotes</p>
         </div>
 
-        {/* Hero Section */}
-        <div className="hidden md:flex flex-col space-y-6">
-          <div className="text-center md:text-left">
-            <h1 className="text-4xl font-extrabold tracking-tight lg:text-5xl">
-              Welcome to Your Project Portal
-            </h1>
-            <p className="mt-4 text-xl text-slate-600">
-              Access project details, view progress, communicate with your contractor, 
-              and more - all in one place.
+        <Card>
+          <CardHeader>
+            <CardTitle>Sign In</CardTitle>
+            <CardDescription>
+              Enter your email and password to access your account
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loginError && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>{loginError}</AlertDescription>
+              </Alert>
+            )}
+
+            <Form {...form}>
+              <form
+                onSubmit={form.handleSubmit(onSubmit)}
+                className="space-y-4"
+              >
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input placeholder="your.email@example.com" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password</FormLabel>
+                      <FormControl>
+                        <Input type="password" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={loginMutation.isPending}
+                >
+                  {loginMutation.isPending ? "Signing in..." : "Sign In"}
+                </Button>
+              </form>
+            </Form>
+          </CardContent>
+          <CardFooter className="flex justify-center text-center">
+            <p className="text-sm text-slate-500">
+              Need help? Contact your contractor for assistance.
             </p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <FeatureCard 
-              title="Track Progress" 
-              description="View real-time updates on your project's timeline and milestones."
-              icon="📊"
-            />
-            <FeatureCard 
-              title="Project Files" 
-              description="Access important documents, designs, and photos."
-              icon="📁"
-            />
-            <FeatureCard 
-              title="Approvals" 
-              description="Review and approve designs, changes, and documents."
-              icon="✓"
-            />
-            <FeatureCard 
-              title="Messaging" 
-              description="Communicate directly with your project team."
-              icon="💬"
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function FeatureCard({ title, description, icon }: { title: string; description: string; icon: string }) {
-  return (
-    <div className="bg-white p-4 rounded-lg shadow-md border border-slate-100">
-      <div className="flex items-start gap-4">
-        <div className="text-2xl">{icon}</div>
-        <div>
-          <h3 className="font-semibold">{title}</h3>
-          <p className="text-sm text-slate-600">{description}</p>
-        </div>
+          </CardFooter>
+        </Card>
       </div>
     </div>
   );

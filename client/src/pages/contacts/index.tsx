@@ -24,15 +24,17 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Plus, Pencil, Trash2, Phone, Mail, Building } from "lucide-react";
+import { Plus, Pencil, Trash2, Phone, Mail, Building, User, X } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { ContactForm } from "@/components/contacts/ContactForm";
+import { ContactDetail } from "@/components/contacts/ContactDetail";
 import { Badge } from "@/components/ui/badge";
 import { ContactWithDetail } from "@/lib/types";
 
 export default function Contacts() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [selectedContact, setSelectedContact] = useState<ContactWithDetail | null>(null);
 
   // Fetch contacts
@@ -53,6 +55,11 @@ export default function Contacts() {
   const handleEditContact = (contact: ContactWithDetail) => {
     setSelectedContact(contact);
     setIsEditOpen(true);
+  };
+  
+  const handleViewContact = (contact: ContactWithDetail) => {
+    setSelectedContact(contact);
+    setIsDetailOpen(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -177,6 +184,14 @@ export default function Contacts() {
                         <Button 
                           variant="ghost" 
                           size="icon"
+                          onClick={() => handleViewContact(contact)}
+                        >
+                          <User className="h-4 w-4" />
+                          <span className="sr-only">View Details</span>
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
                           onClick={() => handleEditContact(contact)}
                         >
                           <Pencil className="h-4 w-4" />
@@ -221,6 +236,27 @@ export default function Contacts() {
               onSuccess={() => {
                 setIsEditOpen(false);
                 queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Contact Detail Dialog */}
+      <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
+        <DialogContent className="sm:max-w-[525px]">
+          <DialogHeader>
+            <DialogTitle>Contact Details</DialogTitle>
+            <DialogDescription>
+              View contact details and manage portal access.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedContact && (
+            <ContactDetail 
+              contact={selectedContact} 
+              onEdit={() => {
+                setIsDetailOpen(false);
+                setIsEditOpen(true);
               }}
             />
           )}

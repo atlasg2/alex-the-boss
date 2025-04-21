@@ -64,6 +64,9 @@ export interface ContactWithDetail {
   phone?: string;
   type: string;
   createdAt: string;
+  portalEnabled?: boolean;
+  portalPassword?: string | null;
+  portalLastLogin?: string | null;
 }
 
 export interface QuoteWithDetails {
