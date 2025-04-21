@@ -171,6 +171,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Enable portal access for a contact
+  app.post("/api/contacts/:id/enable-portal", async (req: Request, res: Response) => {
+    try {
+      const contactId = req.params.id;
+      
+      // Get the contact
+      const contact = await storage.getContact(contactId);
+      if (!contact) {
+        return res.status(404).json({ message: "Contact not found" });
+      }
+      
+      // Check if contact has an email
+      if (!contact.email) {
+        return res.status(400).json({ 
+          message: "Cannot enable portal access: Contact does not have an email address" 
+        });
+      }
+      
+      // Use the contact's first name as the password (simple for now)
+      const password = contact.firstName || "password";
+      
+      // Hash the password for storage
+      const hashedPassword = await hashPassword(password);
+      
+      // Enable portal access
+      const updatedContact = await storage.enablePortalAccess(contactId, hashedPassword);
+      if (!updatedContact) {
+        return res.status(500).json({ message: "Failed to enable portal access" });
+      }
+      
+      // Return success with the credentials
+      res.status(200).json({ 
+        message: "Portal access enabled successfully",
+        portalAccess: {
+          username: contact.email,
+          password: password, // Only returning this for testing purposes
+          url: "/portal/login"
+        }
+      });
+    } catch (error) {
+      console.error("Error enabling portal access:", error);
+      res.status(500).json({ 
+        message: "Failed to enable portal access",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
   app.delete("/api/contacts/:id", async (req: Request, res: Response) => {
     try {
       const success = await storage.deleteContact(req.params.id);
