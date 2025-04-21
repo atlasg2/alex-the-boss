@@ -211,7 +211,23 @@ export function ContactDetail({ contact: initialContact, onEdit }: ContactDetail
             </div>
           )}
           
-          <DialogFooter>
+          <DialogFooter className="flex justify-between">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                // Store credentials in localStorage for auto-fill
+                if (portalCredentials) {
+                  localStorage.setItem('portal_test_username', portalCredentials.username);
+                  localStorage.setItem('portal_test_password', portalCredentials.password);
+                  
+                  // Open portal login in a new tab
+                  window.open('/portal/login?autofill=true', '_blank');
+                }
+              }}
+            >
+              <KeyRound className="h-4 w-4 mr-2" />
+              Test Client Portal
+            </Button>
             <DialogClose asChild>
               <Button>Close</Button>
             </DialogClose>

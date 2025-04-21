@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -36,12 +36,21 @@ type PortalLoginFormValues = z.infer<typeof portalLoginSchema>;
 export default function PortalLogin() {
   const [, setLocation] = useLocation();
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [isAutoLogin, setIsAutoLogin] = useState(false);
+
+  // Check URL for autofill parameter
+  const urlParams = new URLSearchParams(window.location.search);
+  const shouldAutofill = urlParams.get('autofill') === 'true';
+  
+  // Get stored credentials from localStorage if autofill is requested
+  const storedUsername = shouldAutofill ? localStorage.getItem('portal_test_username') : null;
+  const storedPassword = shouldAutofill ? localStorage.getItem('portal_test_password') : null;
 
   const form = useForm<PortalLoginFormValues>({
     resolver: zodResolver(portalLoginSchema),
     defaultValues: {
-      email: "",
-      password: "",
+      email: storedUsername || "",
+      password: storedPassword || "",
     },
   });
 
@@ -62,6 +71,23 @@ export default function PortalLogin() {
     setLoginError(null);
     loginMutation.mutate(data);
   }
+  
+  // Auto login if credentials are available
+  useEffect(() => {
+    if (shouldAutofill && storedUsername && storedPassword && !isAutoLogin) {
+      setIsAutoLogin(true);
+      const autoLoginData = {
+        email: storedUsername,
+        password: storedPassword
+      };
+      // Auto submit after a short delay
+      const timer = setTimeout(() => {
+        loginMutation.mutate(autoLoginData);
+      }, 1000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [shouldAutofill, storedUsername, storedPassword, isAutoLogin, loginMutation]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
@@ -79,6 +105,16 @@ export default function PortalLogin() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {isAutoLogin && shouldAutofill && !loginError && (
+              <Alert className="mb-4 bg-blue-50 border-blue-200 text-blue-800">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Auto-Login</AlertTitle>
+                <AlertDescription>
+                  Testing portal access with saved credentials...
+                </AlertDescription>
+              </Alert>
+            )}
+            
             {loginError && (
               <Alert variant="destructive" className="mb-4">
                 <AlertCircle className="h-4 w-4" />
