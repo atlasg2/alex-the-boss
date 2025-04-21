@@ -388,14 +388,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.post("/api/quote-items", async (req: Request, res: Response) => {
     try {
+      console.log("Creating quote item with data:", req.body);
+      
+      // Handle potentially missing fields
+      if (!req.body.description) req.body.description = "Flooring service";
+      if (!req.body.unitPrice) req.body.unitPrice = "0";
+      if (!req.body.quantity) req.body.quantity = 1;
+      
+      // Try to parse with the schema
       const itemData = insertQuoteItemSchema.parse(req.body);
+      console.log("Parsed quote item data:", itemData);
+      
       const item = await storage.createQuoteItem(itemData);
+      console.log("Quote item created:", item);
+      
       res.status(201).json(item);
     } catch (error) {
+      console.error("Error creating quote item:", error);
+      
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid quote item data", errors: error.errors });
+        console.error("Zod validation errors:", error.errors);
+        return res.status(400).json({ 
+          message: "Invalid quote item data", 
+          errors: error.errors,
+          receivedData: req.body
+        });
       }
-      res.status(500).json({ message: "Failed to create quote item" });
+      
+      res.status(500).json({ 
+        message: "Failed to create quote item",
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   });
   
@@ -1564,11 +1587,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Set some basic metadata
       pdfDoc.setTitle(`Quote for ${contact.firstName} ${contact.lastName}`);
-      pdfDoc.setAuthor('Apex Flooring');
+      pdfDoc.setAuthor('Alex Pereira Flooring');
       pdfDoc.setCreator('Contractor Portal');
       
       // Draw header
-      page.drawText('Apex Flooring', {
+      page.drawText('Alex Pereira Flooring', {
         x: 50,
         y: 730,
         size: 24,

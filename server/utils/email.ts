@@ -64,17 +64,17 @@ export async function sendQuoteEmail(to: string, quoteId: string, customerName: 
     const emailData = {
       from: FROM_EMAIL,
       to: to,
-      subject: 'Your Flooring Quote from Apex Flooring',
-      text: `Dear ${customerName},\n\nThank you for your interest in Apex Flooring. Your quote (ID: ${quoteId}) for $${quoteAmount} is attached to this email.\n\nIf you have any questions, please don't hesitate to contact us.\n\nBest regards,\nThe Apex Flooring Team`,
+      subject: 'Your Flooring Quote from Alex Pereira',
+      text: `Dear ${customerName},\n\nThank you for your interest in Alex Pereira Flooring. Your quote (ID: ${quoteId}) for $${quoteAmount} is attached to this email.\n\nIf you have any questions, please don't hesitate to contact us.\n\nBest regards,\nAlex Pereira`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
-          <h1 style="color: #112233;">Apex Flooring</h1>
+          <h1 style="color: #112233;">Alex Pereira Flooring</h1>
           <p>Dear ${customerName},</p>
-          <p>Thank you for your interest in Apex Flooring. Your quote (ID: ${quoteId.substring(0, 8).toUpperCase()}) for $${quoteAmount} is attached to this email.</p>
+          <p>Thank you for your interest in Alex Pereira Flooring. Your quote (ID: ${quoteId.substring(0, 8).toUpperCase()}) for $${quoteAmount} is attached to this email.</p>
           
           <p>Please review the attached PDF. If you approve this quote, please reply to this email.</p>
           
-          <p>Best regards,<br>The Apex Flooring Team</p>
+          <p>Best regards,<br>Alex Pereira</p>
           
           <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0; font-size: 12px; color: #666;">
             <p>This is an automated message from APS Flooring. Please contact us at info@apsflooring.info.</p>
