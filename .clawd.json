@@ -1,0 +1,30 @@
+{
+  "name": "Contractor Management Portal",
+  "description": "A comprehensive contractor management portal designed to streamline client interactions, project tracking, and business operations through an integrated software solution.",
+  "database": {
+    "type": "postgres",
+    "url": "${DATABASE_URL}"
+  },
+  "technologies": {
+    "frontend": ["React", "TypeScript", "TailwindCSS", "shadcn/ui"],
+    "backend": ["Express", "Node.js"],
+    "database": ["PostgreSQL", "Drizzle ORM"],
+    "communication": ["WebSockets", "REST API"]
+  },
+  "features": [
+    "Contact management with portal access creation",
+    "Quote generation with itemized details",
+    "Contract management",
+    "Invoice tracking",
+    "Job scheduling and management",
+    "Client portal with secure login",
+    "File storage and sharing",
+    "Real-time messaging and notifications"
+  ],
+  "structure": {
+    "server": "Backend Express server with API routes",
+    "client": "React frontend application",
+    "shared": "Shared types and schemas"
+  },
+  "dev_notes": "This project uses Drizzle ORM for database interactions. Portal access allows clients to log in with their email and a simple password. Real-time updates are delivered via WebSockets."
+}

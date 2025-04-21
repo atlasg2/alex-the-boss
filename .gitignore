@@ -1,6 +1,46 @@
-node_modules
-dist
+# Dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Misc
 .DS_Store
-server/public
-vite.config.ts.*
-*.tar.gz
+.directory
+Thumbs.db
+*.pem
+
+# Build artifacts
+/dist
+/build
+/.cache
+.next/
+out/
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Testing
+/coverage
+
+# Replit specific
+.replit
+replit.nix
+.cache/
+
+# Neon connection pool
+*.dead
