@@ -1516,7 +1516,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Send Quote Email API
+  // Send Quote Email API with PDF
   app.post("/api/quotes/:id/send", async (req: Request, res: Response) => {
     try {
       const quoteId = req.params.id;
@@ -1526,6 +1526,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!quote) {
         return res.status(404).json({ message: "Quote not found" });
       }
+      
+      // Get quote items
+      const quoteItems = await storage.getQuoteItems(quoteId);
       
       // Get contact
       const contact = await storage.getContact(quote.contactId);
@@ -1537,28 +1540,115 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Contact does not have an email address" });
       }
       
-      // Generate a portal token for this quote if it doesn't exist
-      let portalUrl = `/portal/login?quote=${quoteId}`;
-      
       // Update quote status to "sent"
       await storage.updateQuote(quoteId, { status: "sent" });
       
       // Format the amount correctly
       const formattedAmount = `$${parseFloat(quote.total.toString()).toFixed(2)}`;
       
-      // Send the email
+      // Generate PDF
+      const quoteWithItems = {
+        ...quote,
+        items: quoteItems
+      };
+      
+      // Use the server-side PDF generation
+      const { PDFDocument, rgb, StandardFonts } = await import('pdf-lib');
+      const pdfDoc = await PDFDocument.create();
+      // Add PDF content (similar to what's in the PDF API endpoint)
+      const page = pdfDoc.addPage([612, 792]); // US Letter size
+      
+      // Get fonts
+      const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+      const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+      
+      // Set some basic metadata
+      pdfDoc.setTitle(`Quote for ${contact.firstName} ${contact.lastName}`);
+      pdfDoc.setAuthor('Apex Flooring');
+      pdfDoc.setCreator('Contractor Portal');
+      
+      // Draw header
+      page.drawText('Apex Flooring', {
+        x: 50,
+        y: 730,
+        size: 24,
+        font: helveticaBold,
+        color: rgb(0.15, 0.39, 0.92), // Primary blue color
+      });
+      
+      page.drawText('QUOTE', {
+        x: 450,
+        y: 730,
+        size: 24,
+        font: helveticaBold,
+        color: rgb(0.15, 0.39, 0.92),
+      });
+      
+      // Basic quote and customer info
+      page.drawText(`Quote #: Q-${quoteId.substring(0, 8).toUpperCase()}`, {
+        x: 50,
+        y: 700,
+        size: 12,
+        font: helveticaBold,
+      });
+      
+      page.drawText(`Date: ${new Date().toLocaleDateString()}`, {
+        x: 50,
+        y: 680,
+        size: 10,
+        font: helveticaFont,
+      });
+      
+      page.drawText(`Client: ${contact.firstName} ${contact.lastName}`, {
+        x: 50,
+        y: 660,
+        size: 10,
+        font: helveticaFont,
+      });
+      
+      page.drawText(`Total Amount: $${formattedAmount}`, {
+        x: 50,
+        y: 640,
+        size: 10,
+        font: helveticaFont,
+      });
+      
+      // Simplified details section
+      page.drawText('Quote Details:', {
+        x: 50,
+        y: 600,
+        size: 12,
+        font: helveticaBold,
+      });
+      
+      let yPos = 580;
+      for (const item of quoteItems) {
+        const formatCurrency = (value: any) => `$${parseFloat(value.toString()).toFixed(2)}`;
+        page.drawText(`• ${item.description}: ${formatCurrency(item.unitPrice)} x ${item.quantity}`, {
+          x: 60,
+          y: yPos,
+          size: 10,
+          font: helveticaFont,
+        });
+        yPos -= 20;
+      }
+      
+      // Save the PDF
+      const pdfBytes = await pdfDoc.save();
+      
+      // Send the email with PDF attachment
       const success = await sendQuoteEmail(
         contact.email, 
         quoteId, 
         `${contact.firstName} ${contact.lastName}`,
         formattedAmount,
-        portalUrl
+        pdfBytes
       );
       
       if (success) {
         res.json({ 
           success: true, 
-          message: `Quote sent to ${contact.email}` 
+          message: `Quote sent to ${contact.email} with PDF attachment` 
         });
       } else {
         res.status(500).json({ 
