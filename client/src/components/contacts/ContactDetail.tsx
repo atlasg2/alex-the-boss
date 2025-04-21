@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { 
   Card, 
   CardContent, 
@@ -32,6 +33,7 @@ interface ContactDetailProps {
 
 export function ContactDetail({ contact: initialContact, onEdit }: ContactDetailProps) {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [isPortalDialogOpen, setIsPortalDialogOpen] = useState(false);
   const [localContact, setLocalContact] = useState<ContactWithDetail>(initialContact);
   const [portalCredentials, setPortalCredentials] = useState<{
@@ -58,13 +60,33 @@ export function ContactDetail({ contact: initialContact, onEdit }: ContactDetail
         portalEnabled: true
       }));
       
+      // Store credentials for auto-login
       setPortalCredentials(data.portalAccess);
+      localStorage.setItem('portal_test_username', data.portalAccess.username);
+      localStorage.setItem('portal_test_password', data.portalAccess.password);
+      
+      // Update cache
       queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
       queryClient.invalidateQueries({ queryKey: [`/api/contacts/${localContact.id}`] });
+      
+      // Show toast and dialog
       toast({
         title: "Portal access enabled",
         description: "Client can now access the portal",
+        action: (
+          <Button 
+            size="sm" 
+            variant="outline" 
+            onClick={() => {
+              setIsPortalDialogOpen(false);
+              setLocation('/portal/login?autofill=true');
+            }}
+          >
+            View Portal
+          </Button>
+        ),
       });
+      
       setIsPortalDialogOpen(true);
     },
     onError: (error: Error) => {
@@ -213,20 +235,21 @@ export function ContactDetail({ contact: initialContact, onEdit }: ContactDetail
           
           <DialogFooter className="flex justify-between">
             <Button 
-              variant="outline" 
+              variant="default" 
               onClick={() => {
                 // Store credentials in localStorage for auto-fill
                 if (portalCredentials) {
                   localStorage.setItem('portal_test_username', portalCredentials.username);
                   localStorage.setItem('portal_test_password', portalCredentials.password);
                   
-                  // Open portal login in a new tab
-                  window.open('/portal/login?autofill=true', '_blank');
+                  // Close dialog and navigate directly to portal login
+                  setIsPortalDialogOpen(false);
+                  setLocation('/portal/login?autofill=true');
                 }
               }}
             >
               <KeyRound className="h-4 w-4 mr-2" />
-              Test Client Portal
+              View Client Portal
             </Button>
             <DialogClose asChild>
               <Button>Close</Button>
